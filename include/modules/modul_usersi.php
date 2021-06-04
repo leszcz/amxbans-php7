@@ -1,7 +1,7 @@
 <?php
 /**
-	Modu³ pozwalaj¹cy w ³atwy sposób zaimportowaæ listê adminów z pliku users.ini
-	do bazy danych z bezpoœrednim przypisaniem adminów do serwerów.
+	Moduï¿½ pozwalajï¿½cy w ï¿½atwy sposï¿½b zaimportowaï¿½ listï¿½ adminï¿½w z pliku users.ini
+	do bazy danych z bezpoï¿½rednim przypisaniem adminï¿½w do serwerï¿½w.
 	
 	@author Portek <admin@portek.net.pl>  
 	@url http://cserwerek.pl/user/2-michal/ AMXX.PL::Portek
@@ -25,7 +25,7 @@ if (!has_access("bans_import")) {
 ob_start();
 
 $modul_site="usersi";
-$title2="Import adminów z users.ini";
+$title2="Import adminÃ³w z users.ini";
 
 function validateSID($steamid){
 	if(strlen(trim($steamid)) != 0)
@@ -73,14 +73,14 @@ if(isset($_POST['usersImport'])){
 							
 							if($dane[1]!=null && $dane[5]!=null && $dane[7]!=null /*&& !in_array($dane[1],array('haM', 'STEAM_0:0:123456', '123.45.67.89', 'My Name'))*/){
 								if($dane[9]!=null) { $prawa = $dane[9]?yes:no; } else { $prawa = $_POST['isStatic']; }
-								$admini[] = array(	
-												'id' => str_replace(array("\\","\0","\n","\r","\x1a","'",'"','`'),array("\\\\","\\0","\\n","\\r","\Z","\'",'\"','\`'),$dane[1]),
-												'sid' => $sid, 
-												'pw' => $dane[3]?md5($dane[3]):'', 
-												'flags' => $dane[5], 
-												'access' => $dane[7], 
-												'static' => $prawa
-											);
+								$admini[] = [
+									'id' => str_replace(array("\\","\0","\n","\r","\x1a","'",'"','`'),array("\\\\","\\0","\\n","\\r","\Z","\'",'\"','\`'),$dane[1]),
+									'sid' => $sid, 
+									'pw' => $dane[3]?md5($dane[3]):'', 
+									'flags' => $dane[5], 
+									'access' => $dane[7], 
+									'static' => $prawa
+								];
 							}
 						}
 					}
@@ -110,7 +110,7 @@ if(isset($_POST['usersImport'])){
 						}
 					}
 					unlink("temp/".$_FILES['usersFile']['name']);
-					$user_msg="Operacja zakoñczona sukcesem!";
+					$user_msg="Operacja zakoÅ„czona sukcesem!";
 				}
 		}
 	}
