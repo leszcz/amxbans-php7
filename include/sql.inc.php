@@ -30,7 +30,7 @@ function sql_set_websettings() {
   $config->use_demo = $result->use_demo;
   $config->use_comment = $result->use_comment;
   //set vars to an array
-  $vars=array(
+  $vars=[
       "cookie"=>trim($config->cookie),
       "design"=>$config->design,
       "bans_per_page"=>(int)$config->bans_per_page,
@@ -51,7 +51,7 @@ function sql_set_websettings() {
       "max_offences_reason" => $config->max_offences_reason,
       "use_demo" => (int)$result->use_demo,
       "use_comment" => $result->use_comment
-    );
+  ];
   return $vars;
 }
 function sql_get_server($serverid=0) {
@@ -61,10 +61,10 @@ function sql_get_server($serverid=0) {
     $query = mysqli_query($sqlcon, "SELECT * FROM `".$config->db_prefix."_serverinfo` WHERE `id`=".$serverid." LIMIT 1") or die (mysqli_error($mysql));
   } else {
     $query = mysqli_query($sqlcon, "SELECT * FROM `".$config->db_prefix."_serverinfo` ORDER BY `address` ASC") or die (mysqli_error($mysql));
-    $servers=array();
+    $servers=[];
   }
   while($result = mysqli_fetch_object($query)) {
-    $server=array(
+    $server=[
       "sid"=>$result->id,
       "timestamp"=>$result->timestamp,
       "hostname"=>$result->hostname,
@@ -77,7 +77,7 @@ function sql_get_server($serverid=0) {
       "amxban_menu"=>$result->amxban_menu,
       "reasons"=>$result->reasons,
       "timezone_fixx"=>$result->timezone_fixx
-    );
+    ];
     if(!$serverid) $servers[]=$server;
   }
   if(!$serverid) return $servers;
@@ -89,7 +89,7 @@ function sql_get_server_ids() {
   $sqlcon = mysqli_connect($config->db_host,$config->db_user,$config->db_pass, $config->db_db);
   global $config;
   $query = mysqli_query($sqlcon, "SELECT `id` FROM `".$config->db_prefix."_serverinfo` ORDER BY `address` ASC") or die (mysqli_error($mysql));
-  $serverids=array();
+  $serverids=[];
   while($result = mysqli_fetch_object($query)) {
     $serverids[]=$result->id;
   }
@@ -102,7 +102,7 @@ function sql_get_reasons_set() {
   $sqlcon = mysqli_connect($config->db_host,$config->db_user,$config->db_pass, $config->db_db);
   
   $query = mysqli_query($sqlcon, "SELECT * FROM `".$config->db_prefix."_reasons_set` ORDER BY `setname` ASC") or die (mysqli_error($mysql));
-  $reasons_set=array();
+  $reasons_set=[];
   while($result = mysqli_fetch_object($query)) {
     $reason_set=array(
       "id"=>$result->id,
@@ -123,7 +123,7 @@ function sql_get_reasons() {
   $sqlcon = mysqli_connect($config->db_host,$config->db_user,$config->db_pass, $config->db_db);
   
   $query = mysqli_query($sqlcon, "SELECT * FROM `".$config->db_prefix."_reasons` ORDER BY `id` ASC") or die (mysqli_error($mysql));
-  $reasons=array();
+  $reasons=[];
   while($result = mysqli_fetch_object($query)) {
     $reason=array(
       "id"=>$result->id,
@@ -149,9 +149,9 @@ function sql_get_amxadmins() {
   $sqlcon = mysqli_connect($config->db_host,$config->db_user,$config->db_pass, $config->db_db);
   
   $query = mysqli_query($sqlcon, "SELECT * FROM `".$config->db_prefix."_amxadmins` ORDER BY `access` ASC") or die (mysqli_error($mysql));
-  $admins=array();
+  $admins=[];
   while($result = mysqli_fetch_object($query)) {
-    $admin=array(
+    $admin = [
       "aid"=>$result->id,
       "username"=>html_safe($result->username),
       "password"=>$result->password,
@@ -164,7 +164,7 @@ function sql_get_amxadmins() {
       "created"=>$result->created,
       "expired"=>$result->expired,
       "days"=>$result->days
-    );
+    ];
     $admins[]=$admin;
   }
   return $admins;
@@ -174,13 +174,13 @@ function sql_get_amxadmins_list() {
   global $config;
   $sqlcon = mysqli_connect($config->db_host,$config->db_user,$config->db_pass, $config->db_db);
   $query = mysqli_query($sqlcon, "SELECT * FROM `".$config->db_prefix."_amxadmins` WHERE `ashow`=1 AND (`expired`=0 OR `expired`>UNIX_TIMESTAMP()) ORDER BY `access` ASC") or die (mysqli_error($mysql));
-  $admins=array();
+  $admins=[];
   while($result = mysqli_fetch_object($query)) {
     if(!empty($result->steamid)) {
       $steamid = htmlentities($result->steamid, ENT_QUOTES);
       $steamcomid = GetFriendId($steamid);
     }
-    $admin=array(
+    $admin = [
       "aid"=>$result->id,
       "username"=>html_safe($result->username),
       "comid"=>$steamcomid,
@@ -194,7 +194,7 @@ function sql_get_amxadmins_list() {
       "created"=>$result->created,
       "expired"=>$result->expired,
       "days"=>$result->days
-    );
+    ];
     $admins[]=$admin;
   }
   return $admins;
@@ -205,7 +205,7 @@ function sql_get_amxadmins_server($server) {
   $sqlcon = mysqli_connect($config->db_host,$config->db_user,$config->db_pass, $config->db_db);
   
   $query = mysqli_query($sqlcon, "SELECT * FROM `".$config->db_prefix."_amxadmins` ORDER BY `access` ASC") or die (mysqli_error($mysql));
-  $admins=array();
+  $admins=[];
   while($result = mysqli_fetch_object($query)) {
     $query2 = mysqli_query($sqlcon, "SELECT `custom_flags`,`use_static_bantime` FROM `".$config->db_prefix."_admins_servers` WHERE `admin_id`=".$result->id." AND `server_id`=".$server) or die (mysqli_error($mysql));
     if($result2 = mysqli_fetch_object($query2)) {
@@ -217,7 +217,7 @@ function sql_get_amxadmins_server($server) {
         $static_bantime="no";
         $aktiv=0;
     }
-    $admin=array(
+    $admin=[
       "sid"=>$server,
       "aid"=>$result->id,
       "username"=>html_safe($result->username),
@@ -231,7 +231,7 @@ function sql_get_amxadmins_server($server) {
       "custom_flags"=>$custom_flags,
       "use_static_bantime"=>$static_bantime,
       "aktiv"=>$aktiv
-    );
+    ];
     $admins[]=$admin;
   }
   return $admins;
@@ -275,7 +275,7 @@ function sql_get_webadmins() {
   global $config;
   $sqlcon = mysqli_connect($config->db_host,$config->db_user,$config->db_pass, $config->db_db);
   $query = mysqli_query($sqlcon, "SELECT id,username,level,last_action,email FROM `".$config->db_prefix."_webadmins` ORDER BY `level`,`username`") or die (mysqli_error($mysql));
-  $users=array();
+  $users=[];
 
   while($result = mysqli_fetch_object($query)) {
     $user=array(
@@ -293,9 +293,9 @@ function sql_get_webadmins() {
 function sql_get_server_admins($server) {
   global $config;
   $sqlcon = mysqli_connect($config->db_host,$config->db_user,$config->db_pass, $config->db_db);
-  $serveradmins=array();
+  $serveradmins=[];
   $query = mysqli_query($sqlcon, "SELECT s.admin_id,s.custom_flags,s.use_static_bantime,a.username FROM ".$config->db_prefix."_admins_servers as s,".$config->db_prefix."_amxadmins as a WHERE s.server_id=".$server) or die (mysqli_error($mysql));
-  $admins=array();
+  $admins=[];
   while($result = mysqli_fetch_object($query)) {
     $admin=array(
       "admin_id"=>$result->admin_id,
@@ -312,7 +312,7 @@ function sql_get_usermenu(&$count) {
   $sqlcon = mysqli_connect($config->db_host,$config->db_user,$config->db_pass, $config->db_db);
   //get menu from db
   global $count;
-  $menu=array();
+  $menu=[];
   $query = mysqli_query($sqlcon, "SELECT * FROM `".$config->db_prefix."_usermenu` ORDER BY `pos` ASC") or die (mysqli_error($mysql));
   $count=0;
   while($result = mysqli_fetch_object($query)) {
@@ -340,7 +340,7 @@ function sql_get_modules($aktiv_only=0,&$count) {
   $select.=" ORDER BY `name` ASC";
 
   $query = mysqli_query($sqlcon, $select) or die (mysqli_error());
-  $modules=array();
+  $modules=[];
   
   while($result = mysqli_fetch_object($query)) {
     $modul=array(
@@ -369,7 +369,7 @@ function sql_get_ban_details($bid) {
     LEFT JOIN `".$config->db_prefix."_amxadmins` AS aa ON (aa.steamid=ba.admin_nick OR aa.steamid=ba.admin_ip OR aa.steamid=ba.admin_id)
     WHERE ba.bid=".$bid." LIMIT 1") or die (mysqli_error($mysql));
 
-  $ban_row=array();
+  $ban_row=[];
 
   while($result = mysqli_fetch_object($query)) {
     $ban_row=array(
@@ -408,7 +408,7 @@ function sql_get_ban_details_activ ( $nickname, &$count, $bid ) {
     LEFT JOIN `".$config->db_prefix."_serverinfo` AS se ON ba.server_ip=se.address
     WHERE `player_nick`='".$nickname."' AND `expired`=0 AND `bid`<>".$bid) or die (mysqli_error($mysql));
 
-  $ban_rows=array();
+  $ban_rows=[];
 
   while($ban_row=mysqli_fetch_assoc($query)) {
     $count++;
@@ -427,7 +427,7 @@ function sql_get_ban_details_exp ( $nickname, &$count, $bid ) {
   $query = mysqli_query($sqlcon, "SELECT ba.*,se.timezone_fixx FROM `".$config->db_prefix."_bans` AS ba
     LEFT JOIN `".$config->db_prefix."_serverinfo` AS se ON ba.server_ip=se.address
     WHERE `player_nick`='".$nickname."' AND `expired`=1 AND `bid`<>".$bid) or die (mysqli_error());
-  $ban_rows=array();
+  $ban_rows=[];
 
   while($ban_row=mysqli_fetch_assoc($query)) {
     $count++;
@@ -448,7 +448,7 @@ function sql_get_ban_details_motd_exp ( $steamid, &$count ) {
     LEFT JOIN `".$config->db_prefix."_serverinfo` AS se ON ba.server_ip=se.address
     WHERE `player_nick`='".$nickname."' AND `expired`=1 ORDER BY ban_created DESC") or die (mysqli_error());
 
-  $ban_rows=array();
+  $ban_rows=[];
 
   while($ban_row=mysqli_fetch_assoc($query)) {
     $ban_row["ban_created"]=($ban_row["ban_created"] + ($ban_row["timezone_fixx"] * 60 * 60));
@@ -498,7 +498,7 @@ function sql_get_comments($bid,&$count) {
   $sqlcon = mysqli_connect($config->db_host,$config->db_user,$config->db_pass, $config->db_db);
   $query = mysqli_query($sqlcon, "SELECT * FROM `".$config->db_prefix."_comments` WHERE `bid`=".$bid." ORDER BY `date` ASC") or die (mysqli_error());
   //Array aufbereiten
-  $comments=array();
+  $comments=[];
   while($result = mysqli_fetch_object($query)) {
     $comment=array(
       "id"=>$result->id,
@@ -564,10 +564,10 @@ function sql_get_files($bid,&$count) {
   $sqlcon = mysqli_connect($config->db_host,$config->db_user,$config->db_pass, $config->db_db);
   $query = mysqli_query($sqlcon, "SELECT * FROM `".$config->db_prefix."_files` WHERE `bid`=".$bid." ORDER BY `upload_time` ASC") or die (mysqli_error());
   //Array aufbereiten
-  $files=array();
+  $files=[];
   while($result = mysqli_fetch_object($query)) {
     if(file_exists("include/files/".$result->demo_file."_thumb")) $thumb=1;
-    $file=array(
+    $file=[
       "id"=>$result->id,
       "demo_file"=>$result->demo_file,
       "demo_real"=>html_safe($result->demo_real),
@@ -579,7 +579,7 @@ function sql_get_files($bid,&$count) {
       "file_size"=>$result->file_size,
       "addr"=>$result->addr,
       "thumb"=>$thumb
-    );
+    ];
     $count++;
     $files[]=$file;
   }
@@ -639,7 +639,7 @@ function sql_get_search_bans ( $search, $active=1, &$count=0 ) {
       $query2    = mysqli_query($sqlcon, "SELECT COUNT(*) FROM `".$config->db_prefix."_bans` WHERE `player_nick`='".$nickname."' AND `expired`=1");
       $bancount  = mysqli_data_seek( $query2, 0 );
     }
-    $ban_row=array(
+    $ban_row=[
       "bid"       => $result->bid,
       "player_ip"     => $result->player_ip,
       "player_id"     => $result->player_id,
@@ -656,7 +656,7 @@ function sql_get_search_bans ( $search, $active=1, &$count=0 ) {
       "server_ip"     => $result->server_ip,
       "server_name"     => $result->server_name,
       "bancount"    => $bancount
-    );
+    ];
     if($config->show_kick_count=="1") {
       $ban_row["kick_count"]=$result->ban_kicks;
       $ban_page["show_kicks"]=1;
@@ -691,7 +691,7 @@ function sql_get_logs($filter) {
   if($filter) $where="WHERE ".$filter;
   $query = mysqli_query($sqlcon, "SELECT * FROM `".$config->db_prefix."_logs` ".$where." ORDER BY `timestamp` DESC LIMIT 100") or die (mysqli_error($mysql));
   //Array aufbereiten
-  $rows=array();
+  $rows=[];
   while($row=mysqli_fetch_assoc($query)) {
     $rows[]=$row;
   }

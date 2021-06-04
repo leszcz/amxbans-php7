@@ -97,7 +97,7 @@ if ((isset($_POST['nick'])) || (isset($_POST['steamid'])) || (isset($_POST['ip']
         $result=$result2;
       }
       //make array
-      $ban_row=array(
+      $ban_row = [
         "bid"       => $result->bid,
         "player_ip"   => $result->player_ip,
         "player_id"   => $result->player_id,
@@ -114,7 +114,7 @@ if ((isset($_POST['nick'])) || (isset($_POST['steamid'])) || (isset($_POST['ip']
         "server_ip"   => $result->server_ip,
         "server_name"   => html_safe($result->server_name),
         "bancount"    => $result->bancount
-      );
+      ];
       
       $count++;
       if($result->expired==0) {

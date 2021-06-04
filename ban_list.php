@@ -70,14 +70,14 @@ if(!$user_site) {
         //calc mysql limits from current site
         $min=($config->bans_per_page * $ban_page_curr)-$config->bans_per_page;
         //build array with site info
-        $ban_page=array(
+        $ban_page = [
                 "current"       => $ban_page_curr,            //current site
                 "max_page"      => ($ban_page_max)? $ban_page_max:1,      //last site
                 "per_page"      => $config->bans_per_page,    //bans per page
                 "first_ban"     => ($ban_count[0])? $min + 1:$min,            //+1: LIMIT 0 is the first ban
                 "max_ban"       => $ban_count[0],                  //count activ bans
                 "all_ban"       => $ban_count[1]                     //count all bans
-        );
+        ];
         
         //get bans for current page
         $query  = mysqli_query($mysql, "SELECT ba.*, se.gametype,se.timezone_fixx, aa.nickname FROM `".$config->db_prefix."_bans` AS ba
@@ -101,7 +101,7 @@ if(!$user_site) {
                         $cc = geoip_country_code_by_addr($gi, $result->player_ip);
                         $cn = geoip_country_name_by_addr($gi, $result->player_ip);
                 }
-                $ban_row=array(
+                $ban_row=[
                         "bid"    => $result->bid,
                         "player_ip"  => $result->player_ip,
                         "player_id"  => $result->player_id,
@@ -119,7 +119,7 @@ if(!$user_site) {
                         "server_name"  => htmlspecialchars($result->server_name),
                         "cc"    => $cc,
                         "cn"    => $cn
-                );
+                ];
                 // get previous offences if any
                 $query2   = mysqli_query($mysql, "SELECT COUNT(*) AS count FROM `".$config->db_prefix."_bans` WHERE ((player_id = '".$result->player_id."' AND ban_type = 'S') OR (player_ip = '".$result->player_ip."' AND ban_type = 'SI')) AND expired = 1") or die(mysql_error());
                 while($result2 = mysqli_fetch_object($query2)) {

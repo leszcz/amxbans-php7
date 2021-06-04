@@ -51,7 +51,7 @@ while($result2 = mysqli_fetch_object($resource2)) {
         if($rules[hlg_version]) $anticheat_array[]=array("name"=>"HLGuard","version"=>$rules[hlg_version],"url"=>"");
       }
       //main server info
-      $server_info = array(
+      $server_info = [
         "sid"      => $result2->id,
         "type"      => $infos[type],
         "version"    => $infos[version],
@@ -76,10 +76,10 @@ while($result2 = mysqli_fetch_object($resource2)) {
         "address"    => $result2->address,
         "mappic"    => $mappic,
         "players"    => ""
-      );
+      ];
 
       //get the players
-      $player_array  = array();
+      $player_array  = [];
       $int = $infos[activeplayers];
       for ($i=0; $i<$int; $i++) {
         $player = $players[$i];
@@ -97,7 +97,7 @@ while($result2 = mysqli_fetch_object($resource2)) {
       $server_info[players] = $player_array;
       $server_array[] = $server_info;
     } else {
-      $server_info = array(
+      $server_info = [
         "sid"      => $result2->id,
         "type"      => "",
         "version"    => "",
@@ -122,7 +122,7 @@ while($result2 = mysqli_fetch_object($resource2)) {
         "address"    => $result2->address,
         "mappic"    => "noimage",
         "players"    => ""
-      );
+      ];
       $server_array[] = $server_info;
     }
     
@@ -159,13 +159,14 @@ while($lb = mysqli_fetch_object($latest_ban)) {
     $steamid  = $lb->player_id;
   }
 
-  $last_ban_arr    = array("steamid"  => $steamid,
-          "nickname"  => htmlspecialchars(_substr($lb->player_nick, 15)),
-          "reason"  => htmlspecialchars(_substr($lb->ban_reason, 15)),
-          "created"  => $lb->ban_created,
-          "length"  => $ban_length,
-          "time"    => time());
-}
+  $last_ban_arr    = [
+    "steamid"  => $steamid,
+    "nickname"  => htmlspecialchars(_substr($lb->player_nick, 15)),
+    "reason"  => htmlspecialchars(_substr($lb->ban_reason, 15)),
+    "created"  => $lb->ban_created,
+    "length"  => $ban_length,
+    "time"    => time());
+  ];
 /*
  *
  *     Template parsing

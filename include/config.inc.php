@@ -109,22 +109,4 @@ class dynamicPage extends Smarty {
   }
 }
 
-  
-/*require_once("smarty/Smarty.class.php");
-
-    #global $config;
-/*
-    $smarty = new Smarty;
-
-    $smarty->template_dir  = $config->templatedir;
-    $smarty->compile_dir  = SMARTY_DIR."templates_c/";
-    $smarty->config_dir  = SMARTY_DIR."configs/";
-    $smarty->cache_dir  = SMARTY_DIR."cache/";
-    $smarty->caching    = false;
-    
-    //for editing templates itРўвЂs better "true", but slow down site load
-/*    $smarty->force_compile = true;
-    
-    $smarty->assign("app_name","dynamicPage"); */
-
 ?>

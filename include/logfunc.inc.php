@@ -35,7 +35,7 @@ function log_to_db($action,$remarks) {
       VALUES (
       NULL , UNIX_TIMESTAMP(), '".$_SERVER["REMOTE_ADDR"]."', '".$_SESSION["uname"]."', '".sql_safe($action)."', '".sql_safe($remarks)."'
       );
-    ") or die (mysql_error());
+    ") or die (mysqli_error());
 }
 
 ?>

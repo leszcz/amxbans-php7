@@ -21,15 +21,6 @@ if(!$_SESSION["loggedin"]) {
 
 $site_start    = "so_in"; //Admin Start Page
 
-//Seiten Verwaltung     wm_ms
-//UserLevel Verwaltung     wm_ul
-//Webadmin Verwaltung     wm_wa
-//AMXX Admin Verwaltung   sm_av
-//Server Verwaltung     sm_sv
-//Server Admins Verwaltung   sm_sa
-//ban reasons verwaltung   sm_bg
-//server info    so_in
-
 $admin_site  = "default";
 $user_msg = "";
 

@@ -1,3 +1,5 @@
+<?php
+
 // Author Notes:
 // This file has been translated from English to Polish by MisieQ and Szyfrant from www.Grajkownia.com & www.KarczmaPodKepa.pl and MmikiM from www.CsMods.pl
 
@@ -16,9 +18,8 @@
 // ó = &#243
 // ł = &#322
 
-<?php
 //encoding and locale
-define("_ENCODING","ISO-8859-2");
+define("_ENCODING","UTF-8");
 define("_LOCALE","pl_PL");
 
 //default

@@ -121,8 +121,6 @@ require_once("include/menu.inc.php");
  * Template parsing
  */
 
-
-
 $title      = "_TITLELOGIN";
 
 // Section

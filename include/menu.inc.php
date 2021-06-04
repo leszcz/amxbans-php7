@@ -26,7 +26,7 @@ require_once("config.inc.php");
 $menu=array();
 $query = mysqli_query($mysql, "SELECT * FROM `".$config->db_prefix."_usermenu` WHERE `activ`=1 ORDER BY `pos` ASC") or die (mysqli_error($mysql));
 while($result = mysqli_fetch_object($query)) {
-  $men=array(
+  $men=[
     "id"=>$result->id,
     "pos"=>$result->pos,
     "activ"=>$result->activ,
@@ -34,7 +34,7 @@ while($result = mysqli_fetch_object($query)) {
     "url"=>$result->url,
     "lang_key2"=>$result->lang_key2,
     "url2"=>$result->url2
-  );
+  ];
   $menu[]=$men;
 }
 

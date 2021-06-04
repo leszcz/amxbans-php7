@@ -1,4 +1,6 @@
-﻿// Author Notes:
+﻿<?php
+
+// Author Notes:
 // This file has been translated from English to Polish by Szyfrant (kio.) from www.KarczmaPodKepa.pl and MmikiM from www.CsMods.pl
 
 // This is the Import/Export Language File
@@ -16,7 +18,6 @@
 // ó = &#243
 // ł = &#322
 
-<?php
 define("_MENUIMPORTEXPORT","Import / Eksport");
 define("_DATAIMPORTEXPORT","Import / Eksport Danych");
 define("_DATABASE","Zapisz Baz&#281");
