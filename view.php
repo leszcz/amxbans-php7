@@ -165,7 +165,7 @@ while($lb = mysqli_fetch_object($latest_ban)) {
     "reason"  => htmlspecialchars(_substr($lb->ban_reason, 15)),
     "created"  => $lb->ban_created,
     "length"  => $ban_length,
-    "time"    => time());
+    "time"    => time()
   ];
 /*
  *
