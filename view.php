@@ -37,8 +37,8 @@ while($result2 = mysqli_fetch_object($resource2)) {
         }
       }
       //check if mappic exists
-      if(file_exists("images/maps/".$infos[mod]."/".$infos[map].".jpg")) {
-        $mappic = $infos[map];
+      if(file_exists("images/maps/".$infos['mod']."/".$infos['map'].".jpg")) {
+        $mappic = $infos['map'];
       } else {
         $mappic = "noimage";
       }
@@ -46,33 +46,33 @@ while($result2 = mysqli_fetch_object($resource2)) {
       //create addons array
       if(is_array($rules)) {
         //create anticheat array
-        if($infos[secure]) $anticheat_array[]=array("name"=>"VAC","version"=>"2","url"=>"");
-        if($rules[sbsrv_version]) $anticheat_array[]=array("name"=>"Steambans","version"=>$rules[sbsrv_version],"url"=>"http://www.steambans.com");
-        if($rules[hlg_version]) $anticheat_array[]=array("name"=>"HLGuard","version"=>$rules[hlg_version],"url"=>"");
+        if($infos['secure']) $anticheat_array[]=array("name"=>"VAC","version"=>"2","url"=>"");
+        if($rules['sbsrv_version']) $anticheat_array[]=array("name"=>"Steambans","version"=>$rules['sbsrv_version'],"url"=>"http://www.steambans.com");
+        if($rules['hlg_version']) $anticheat_array[]=array("name"=>"HLGuard","version"=>$rules['hlg_version'],"url"=>"");
       }
       //main server info
       $server_info = [
         "sid"      => $result2->id,
-        "type"      => $infos[type],
-        "version"    => $infos[version],
+        "type"      => $infos['type'],
+        "version"    => $infos['version'],
         "hostname"    => $infos[name], 
-        "map"      => $infos[map],
-        "mod"      => $infos[mod],
-        "game"      => $infos[game],
-        "appid"      => $infos[appid],
-        "cur_players"    => $infos[activeplayers], 
-        "max_players"    => $infos[maxplayers],
-        "bot_players"    => $infos[botplayers],
-        "dedicated"    => ($infos[dedicated]=="d")?"Dedicated":"Listen",
-        "os"      => ($infos[os]=="l")?"Linux":"Windows",
-        "password"    => $infos[password],
-        "secure"    => $infos[secure],
-        "sversion"    => $infos[sversion],
-        "timeleft"    => $rules[amx_timeleft],
-        "maxrounds"    => $rules[mp_maxrounds],
-        "timelimit"    => $rules[mp_timelimit],
-        "nextmap"    => $rules[amx_nextmap],
-        "friendlyfire"    => $rules[mp_friendlyfire],
+        "map"      => $infos['map'],
+        "mod"      => $infos['mod'],
+        "game"      => $infos['game'],
+        "appid"      => $infos['appid'],
+        "cur_players"    => $infos['activeplayers'], 
+        "max_players"    => $infos['maxplayers'],
+        "bot_players"    => $infos['botplayers'],
+        "dedicated"    => ($infos['dedicated']=="d")?"Dedicated":"Listen",
+        "os"      => ($infos['os']=="l")?"Linux":"Windows",
+        "password"    => $infos['password'],
+        "secure"    => $infos['secure'],
+        "sversion"    => $infos['sversion'],
+        "timeleft"    => $rules['amx_timeleft'],
+        "maxrounds"    => $rules['mp_maxrounds'],
+        "timelimit"    => $rules['mp_timelimit'],
+        "nextmap"    => $rules['amx_nextmap'],
+        "friendlyfire"    => $rules['mp_friendlyfire'],
         "address"    => $result2->address,
         "mappic"    => $mappic,
         "players"    => ""
@@ -80,21 +80,21 @@ while($result2 = mysqli_fetch_object($resource2)) {
 
       //get the players
       $player_array  = [];
-      $int = $infos[activeplayers];
+      $int = $infos['activeplayers'];
       for ($i=0; $i<$int; $i++) {
         $player = $players[$i];
-        $player[name] = htmlspecialchars($player[name]);
+        $player['name'] = htmlspecialchars($player['name']);
 
         $player_info = array(
-          "name"    => $player[name],
-          "frag"    => $player[frag],
-          "time"    => $player[time],
+          "name"    => $player['name'],
+          "frag"    => $player['frag'],
+          "time"    => $player['time'],
           );
 
         $player_array[] = $player_info;
       }
       
-      $server_info[players] = $player_array;
+      $server_info['players'] = $player_array;
       $server_array[] = $server_info;
     } else {
       $server_info = [
@@ -135,12 +135,12 @@ while($result2 = mysqli_fetch_object($resource2)) {
  *     Stats
  *
  */
-$stats[total]    = mysqli_num_rows( mysqli_query($mysql, "SELECT bid FROM ".$config->db_prefix."_bans") ); 
-$stats[permanent]  = mysqli_num_rows( mysqli_query($mysql, "SELECT bid FROM ".$config->db_prefix."_bans WHERE ban_length = 0") ); 
-$stats[active]  = mysqli_num_rows( mysqli_query($mysql, "SELECT bid FROM ".$config->db_prefix."_bans WHERE ((ban_created+(ban_length*60)) > ".time()." OR ban_length = 0)") );
-$stats[temp]    = $stats[active] - $stats[permanent];
-$stats[admins]  = mysqli_num_rows( mysqli_query($mysql, "SELECT id FROM ".$config->db_prefix."_amxadmins") );
-$stats[servers]  = mysqli_num_rows( mysqli_query($mysql, "SELECT id FROM ".$config->db_prefix."_serverinfo") );
+$stats['total']    = mysqli_num_rows( mysqli_query($mysql, "SELECT bid FROM ".$config->db_prefix."_bans") ); 
+$stats['permanent']  = mysqli_num_rows( mysqli_query($mysql, "SELECT bid FROM ".$config->db_prefix."_bans WHERE ban_length = 0") ); 
+$stats['active']  = mysqli_num_rows( mysqli_query($mysql, "SELECT bid FROM ".$config->db_prefix."_bans WHERE ((ban_created+(ban_length*60)) > ".time()." OR ban_length = 0)") );
+$stats['temp']    = $stats['active'] - $stats['permanent'];
+$stats['admins']  = mysqli_num_rows( mysqli_query($mysql, "SELECT id FROM ".$config->db_prefix."_amxadmins") );
+$stats['servers']  = mysqli_num_rows( mysqli_query($mysql, "SELECT id FROM ".$config->db_prefix."_serverinfo") );
 /*
  *
  *     Latest Ban
