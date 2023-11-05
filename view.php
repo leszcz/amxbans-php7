@@ -167,6 +167,7 @@ while($lb = mysqli_fetch_object($latest_ban)) {
     "length"  => $ban_length,
     "time"    => time()
   ];
+}
 /*
  *
  *     Template parsing
