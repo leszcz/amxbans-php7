@@ -37,9 +37,9 @@ function return_bytes($val) {
 }
 
 function is__writable($path) {
-//will work in despite of Windows ACLs bug
-//NOTE: use a trailing slash for folders!!!
-  if ($path{strlen($path)-1}=='/') // recursively return a temporary file path
+  //will work in despite of Windows ACLs bug
+  //NOTE: use a trailing slash for folders!!!
+  if ($path[strlen($path)-1]=='/') // recursively return a temporary file path
     return is__writable($path.uniqid(mt_rand()).'.tmp');
   else if (is_dir($path))
     return is__writable($path.'/'.uniqid(mt_rand()).'.tmp');

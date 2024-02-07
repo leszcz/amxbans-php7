@@ -1,0 +1,1 @@
+RewriteRule ^.*\.git.* - [R=404]

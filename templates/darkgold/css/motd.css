@@ -1,0 +1,82 @@
+body {
+	color: #334;
+	margin-top: 30px;
+}
+
+.b {
+	background:url(../../../images/motd/b.png);
+}
+
+.tl {
+	background:url(../../../images/motd/tl.png);
+}
+
+.tr {
+	background:url(../../../images/motd/tr.png);
+}
+
+.bl {
+	background:url(../../../images/motd/bl.png);
+}
+
+.br {
+	background:url(../../../images/motd/br.png);
+}
+
+.banDuration {
+	font-weight: bold;
+	color: #FF5A00;
+}
+
+.banDurationPerm {
+	font-weight: bold;
+	color: #FF0000;
+}
+
+.fat {
+	font-weight: bold;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+td {
+	border-bottom: 0;
+	padding: 0;
+}
+
+.body {
+	padding: 10px;
+	background: #fff;
+	width: 570px;
+}
+
+img {
+	border: 0;
+	margin: 0;
+}
+
+.header {
+	border-bottom: 1px solid #DDDDDD;
+	padding-bottom: 5px;
+	margin-bottom: 10px;
+	text-align: center;
+	color:#999999;
+	font-weight: bold;
+	font-size: 170%;
+}
+
+.footer {
+	border-top: 1px solid #DDDDDD;
+	padding-top: 5px;
+	margin-top: 10px;
+	text-align: right;
+}
+
+.tl, .tr, .bl, .br {
+	height: 10px;
+	width: 10px;
+	overflow: hidden;
+	padding: 0;
+}

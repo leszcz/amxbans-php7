@@ -12,7 +12,8 @@ session_start();
 require_once("install/functions.inc");
 require_once("include/functions.inc.php");
 
-//$config->v_web = "Gm 1.6";
+$config = new \stdClass();
+$config->v_web = "Gm 1.6";
 
 
 //installation are 6 sites
@@ -45,7 +46,7 @@ $config->path_root=str_replace("/".basename(str_replace("\\", "/", $_SERVER["SCR
 $config->document_root=str_replace("/".basename($_SERVER["PHP_SELF"]),"",$_SERVER["PHP_SELF"]);
 $config->templatedir = $config->path_root."/install";
 $config->langfilesdir = $config->path_root."/install/language/";
-$config->default_lang = "german";
+$config->default_lang = "english";
 if(empty($_SESSION["lang"])) $_SESSION["lang"]="english";
 
 if(!is__writable($config->path_root."/include/smarty/templates_c/")) {
@@ -73,7 +74,7 @@ class dynamicPage extends Smarty {
 		$this->cache_dir	= SMARTY_DIR."cache/";
 		$this->caching		= false;
 		
-		//for changing templates it�s better "true", but slow down site load
+		//for changing templates it?s better "true", but slow down site load
 		$this->force_compile = true;
 		$this->caching = false;
 		
@@ -93,7 +94,7 @@ if($sitenr==2) {
 	$php_settings=array(
 			"display_errors"=>(ini_get('display_errors')=="")?"off":ini_get('display_errors'),
 			"register_globals"=>(ini_get('register_globals')==1 || ini_get('register_globals')=="on")?"_ON":"_OFF",
-			"magic_quotes_gpc"=>(get_magic_quotes_gpc()==true)?"_ON":"_OFF", #(ini_get('magic_quotes_gpc')=="0")?"off":"on",
+			"magic_quotes_gpc"=>(!function_exists('get_magic_quotes_gpc'))?"_ON":"_OFF", #(ini_get('magic_quotes_gpc')=="0")?"off":"on",
 			"safe_mode"=>(ini_get('safe_mode')==1 || ini_get('safe_mode')=="on")?"_ON":"_OFF",
 			"post_max_size"=>ini_get('post_max_size')." (".return_bytes(ini_get('post_max_size'))." bytes)",
 			"upload_max_filesize"=>ini_get('upload_max_filesize')." (".return_bytes(ini_get('upload_max_filesize'))." bytes)",
@@ -314,7 +315,6 @@ if($sitenr==7 && isset($_POST["check7"])) {
 	exit;
 }
 
-
 $_SESSION["path_root"] = $config->path_root;
 $_SESSION["document_root"] = $config->document_root;
 
@@ -324,6 +324,7 @@ $smarty->assign("sitenr",$sitenr);
 $smarty->assign("sitenrall",$sitenrall);
 $smarty->assign("current_lang",$config->default_lang);
 $smarty->assign("v_web",$config->v_web);
-
+$smarty->template_dir = $config->path_root.'/install';
+$smarty->compile_dir = $config->path_root."/include/smarty/templates_c";
 $smarty->display('setup.tpl');
 ?>

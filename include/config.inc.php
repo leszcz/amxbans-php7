@@ -20,7 +20,7 @@ function htmlsafe_recursive(&$var) {
   return $var;
 }
 
-if (get_magic_quotes_gpc()) {
+if (function_exists('get_magic_quotes_gpc')) {
   $_GET = stripslashes_recursive($_GET);
   $_POST = stripslashes_recursive($_POST);
   $_COOKIE = stripslashes_recursive($_COOKIE);
