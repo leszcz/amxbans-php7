@@ -30,7 +30,7 @@ function smarty_modifier_lang($lang) {
   //load lang keys to array if language changed
   if($langkeys["current_language"]!=$language) {
     //get all current langfiles
-    $all_lang_files=array();
+    $all_lang_files = [];
     chdir($lang_files_dir);
     if ($handle = opendir('.')) {
       while (false !== ($file = readdir($handle))) {

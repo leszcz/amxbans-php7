@@ -80,11 +80,11 @@ function validate_value($value,$type='name',&$msg="",$minsize=1,$maxsize=31,$pre
 function sql_safe($value) {
   global $config;
   $mysql = mysqli_connect($config->db_host,$config->db_user,$config->db_pass, $config->db_db);
-  if (get_magic_quotes_gpc()) $value=stripslashes_recursive($value); //function in config.inc.php
+  if ( function_exists('get_magic_quotes_gpc') ) $value=stripslashes_recursive($value); //function in config.inc.php
   return mysqli_real_escape_string($mysql, $value);
 }
 function html_safe($value) {
-  if (get_magic_quotes_gpc()) $value=stripslashes_recursive($value); //function in config.inc.php
+  if ( function_exists('get_magic_quotes_gpc') ) $value=stripslashes_recursive($value); //function in config.inc.php
   return htmlspecialchars($value, ENT_QUOTES);
 }
 
