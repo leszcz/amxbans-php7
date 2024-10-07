@@ -36,15 +36,13 @@ if(isset($_COOKIE[$config->cookie]) && $_SESSION["loggedin"]==false) {
   
     $sid = $cook[0];
     if(!$_SESSION["lang"]) $_SESSION["lang"]=$cook[1];
-    
-    $mysql = mysqli_connect($config->db_host,$config->db_user,$config->db_pass) or die (mysqli_error($mysql));
-    $resource = mysqli_select_db($mysql,$config->db_db) or die (mysqli_error($mysql));
+    $pdo = getPDO();
 
     if ( strlen( $sid ) >= 16  )
     {
-      $query = mysqli_query($mysql, "SELECT id,username,level,email FROM `".$config->db_prefix."_webadmins` WHERE logcode='".$sid."' LIMIT 1") or die (mysqli_error($mysql));
-      if(mysqli_num_rows($query)) {
-        while($result = mysqli_fetch_object($query)) {
+      $stmt = $pdo->query("SELECT * FROM `{$config->db_prefix}_serverinfo`");
+      if($stmt->rowCount($query)) {
+        while($result = $stmt->fetch(PDO::FETCH_ASSOC)) {
           $_SESSION["uid"]=$result->id;
           $_SESSION["uname"]=$result->username;
           $_SESSION["email"]=$result->email;
@@ -52,8 +50,8 @@ if(isset($_COOKIE[$config->cookie]) && $_SESSION["loggedin"]==false) {
           $_SESSION["sid"]=session_id();
           $_SESSION["loggedin"]=true;
         }
-        $query = mysqli_query($mysql, "SELECT * FROM `".$config->db_prefix."_levels` WHERE level=".$_SESSION["level"]." LIMIT 1") or die (mysqli_error($mysql));
-        while($result = mysqli_fetch_object($query)) {
+        $query = $pdo->query("SELECT * FROM `".$config->db_prefix."_levels` WHERE level=".$_SESSION["level"]." LIMIT 1");
+        while($result = $query->fetch(PDO::FETCH_ASSOC)) {
           $_SESSION['bans_add'] = $result->bans_add;
           $_SESSION['bans_edit'] = $result->bans_edit;
           $_SESSION['bans_delete'] = $result->bans_delete;
@@ -75,16 +73,8 @@ if(isset($_COOKIE[$config->cookie]) && $_SESSION["loggedin"]==false) {
     }
 }
 if(isset($_COOKIE[$config->cookie]) && $_SESSION["loggedin"]==true) {
-  $query = mysqli_query($mysql, "UPDATE `".$config->db_prefix."_webadmins` SET `last_action`=UNIX_TIMESTAMP() WHERE `id`=".$_SESSION["uid"]);
+  $query = $pdo->prepare("UPDATE `".$config->db_prefix."_webadmins` SET `last_action`=UNIX_TIMESTAMP() WHERE `id` = :uid");
+  $query->execute(['uid' => $_SESSION["uid"]]);
 }
-/*        
-if($_SESSION["sid"] != session_id()) {
-  unset($_SESSION["uid"]);
-  unset($_SESSION["uname"]);
-  unset($_SESSION["email"]);
-  unset($_SESSION["level"]);
-  unset($_SESSION["sid"]);
-  unset($_SESSION["loggedin"]);
-}
-*/
+
 ?>

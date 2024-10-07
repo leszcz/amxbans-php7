@@ -81,20 +81,27 @@ if ((isset($_POST['nick'])) || (isset($_POST['steamid'])) || (isset($_POST['ip']
   }
   
   if(isset($_POST["timesbanned"]) && is_numeric($_POST["timesbanned"])) {
-    //$query=mysqli_query($mysql, "SELECT * FROM ".$config->db_prefix."_bans WHERE player_id IN (SELECT player_id FROM ".$config->db_prefix."_bans GROUP BY player_id HAVING COUNT(*)>=".(int)$_POST["timesbanned"].") ORDER BY player_id,ban_created DESC") or die (mysql_error());
-    $query = mysqli_query($mysql, "SELECT *,COUNT(*) as bancount FROM ".$config->db_prefix."_bans GROUP BY player_id HAVING COUNT(*) >= ".(int)$_POST["timesbanned"]." ORDER BY ban_created DESC,player_id");
+    $pdo = getPDO();
+    $query = $pdo->prepare("SELECT *,COUNT(*) as bancount FROM ".$config->db_prefix."_bans GROUP BY player_id HAVING COUNT(*) >= :timesbanned ORDER BY ban_created DESC,player_id");
+    $query->execute([
+      'timesbanned' => (int) $_POST['timesbanned']
+    ]);
   
-    while($result = mysqli_fetch_object($query)) {
+    while($result = $query->fetch(PDO::FETCH_ASSOC)) {
       if(!empty($result->player_id)) {
         $steamid = html_safe($result->player_id);
         $steamcomid = GetFriendId($steamid);
       }
       //search for a activ ban and make it as ref
-      $query2=mysqli_query($mysql, "SELECT * FROM ".$config->db_prefix."_bans WHERE (`player_id`='".$result->player_id."' AND `ban_type` = 'S') OR (`player_ip`='".$result->player_ip."' AND `ban_type` = 'SI') AND `expired`=0 ORDER BY ban_created DESC LIMIT 1");
-      if(mysqli_num_rows($query2)) {
-        $result2 = mysqli_fetch_object($query2);
+      $query2 = $pdo->query("SELECT * FROM ".$config->db_prefix."_bans WHERE (`player_id`= :player_id AND `ban_type` = 'S') OR (`player_ip`= :player_ip AND `ban_type` = 'SI') AND `expired`=0 ORDER BY ban_created DESC LIMIT 1");
+      $query2->execute([
+        'player_id' => $result->player_id,
+        'player_ip' => $result->player_ip
+      ]);
+      if($query2->rowCount()) {
+        $result2 = $query2->fetch(PDO::FETCH_ASSOC);
         $result2->bancount=$result->bancount;
-        $result=$result2;
+        $result = $result2;
       }
       //make array
       $ban_row = [
@@ -118,10 +125,10 @@ if ((isset($_POST['nick'])) || (isset($_POST['steamid'])) || (isset($_POST['ip']
       
       $count++;
       if($result->expired==0) {
-        $ban_list_aktiv[]=$ban_row;
+        $ban_list_aktiv[] = $ban_row;
         $count_aktiv++;
       } else {
-        $ban_list_exp[]=$ban_row;
+        $ban_list_exp[] = $ban_row;
         $count_exp++;
       }
     }

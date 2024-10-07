@@ -1,87 +1,79 @@
 <?php
-  // Diese Funktion gibt es im Original unter [url]www.codeschnipsel.net[/url]
-  // Ich habe sie ein wenig modifiziert
-  function mkthumb($img_src,     // Dateiname
-                   $img_width  = "100",       // max. Größe in x-Richtung
-                   $img_height = "100",       // max. Größe in y-Richtung
-                   $folder_scr = "include/files",  // Ordner der normalen Bilder
-                   $des_src    = "include/files")    // Ordner der Thumbs
-  {
-    // Größe und Typ ermitteln
-    list($src_width, $src_height, $src_typ) = getimagesize($folder_scr."/".$img_src);
-	if(!$src_typ) return false;
-	
-    // calculate new size
-	  if ($src_width >= $src_height)
-	  {
-		$new_image_height = $src_height / $src_width * $img_width;
-		$new_image_width  = $img_width;
+declare(strict_types=1);
 
-		if ($new_image_height > $img_height)
-		{
-		  $new_image_width  = $new_image_width / $new_image_height * $img_height;
-		  $new_image_height = $img_height;
-		}
-	  }
-	  else
-	  {
-		$new_image_width  = $src_width / $src_height * $img_height;
-		$new_image_height = $img_height;
+/**
+ * Creates a thumbnail from an image file
+ *
+ * @param string $img_src      Filename of the source image
+ * @param int    $img_width    Maximum width of the thumbnail
+ * @param int    $img_height   Maximum height of the thumbnail
+ * @param string $folder_src   Directory of the source images
+ * @param string $des_src      Directory for the thumbnails
+ * 
+ * @return bool True if thumbnail was created successfully, false otherwise
+ */
+function mkthumb(
+    string $img_src,
+    int $img_width = 100,
+    int $img_height = 100,
+    string $folder_src = "include/files",
+    string $des_src = "include/files"
+): bool {
+    $src_path = $folder_src . "/" . $img_src;
+    $dest_path = $des_src . "/" . $img_src . "_thumb";
 
-		if ($new_image_width > $img_width)
-		{
-		  $new_image_height = $new_image_height / $new_image_width * $img_width;
-		  $new_image_width  = $img_width;
-		}
-	  }
-
-	 // for the case that the thumbnail would be bigger then the original picture
-	 if($new_image_height > $src_height)
-	  {
-		$new_image_width  = $new_image_width * $src_height/$new_image_height;
-		$new_image_height = $src_height;
-	  }
-
-	  if($new_image_width > $src_width)
-	  {
-		$new_image_height = $new_image_height * $new_image_width/$src_width;
-		$new_image_width  = $src_width;
-	  }  
-
-
-    if($src_typ == 1)     // GIF
-    {
-      $image = imagecreatefromgif($folder_scr."/".$img_src);
-      $new_image = imagecreate($new_image_width, $new_image_height);
-      imagecopyresampled($new_image, $image, 0, 0, 0, 0, $new_image_width,$new_image_height, $src_width, $src_height);
-      imagegif($new_image, $des_src."/".$img_src."_thumb", 100);
-      imagedestroy($image);
-      imagedestroy($new_image);
-      return true;
+    // Get size and type of the image
+    $image_info = getimagesize($src_path);
+    if ($image_info === false) {
+        return false;
     }
-    elseif($src_typ == 2) // JPG
-    {
-      $image = imagecreatefromjpeg($folder_scr."/".$img_src);
-      $new_image = imagecreatetruecolor($new_image_width, $new_image_height);
-      imagecopyresampled($new_image, $image, 0, 0, 0, 0, $new_image_width,$new_image_height, $src_width, $src_height);
-      imagejpeg($new_image, $des_src."/".$img_src."_thumb", 100);
-      imagedestroy($image);
-      imagedestroy($new_image);
-      return true;
+
+    [$src_width, $src_height, $src_type] = $image_info;
+
+    // Calculate new size
+    $ratio = min($img_width / $src_width, $img_height / $src_height);
+    $new_width = (int)round($src_width * $ratio);
+    $new_height = (int)round($src_height * $ratio);
+
+    // Create new image based on source type
+    $create_funcs = [
+        IMAGETYPE_GIF => 'imagecreatefromgif',
+        IMAGETYPE_JPEG => 'imagecreatefromjpeg',
+        IMAGETYPE_PNG => 'imagecreatefrompng'
+    ];
+
+    $output_funcs = [
+        IMAGETYPE_GIF => 'imagegif',
+        IMAGETYPE_JPEG => 'imagejpeg',
+        IMAGETYPE_PNG => 'imagepng'
+    ];
+
+    if (!isset($create_funcs[$src_type]) || !isset($output_funcs[$src_type])) {
+        return false;
     }
-    elseif($src_typ == 3) // PNG
-    {
-      $image = imagecreatefrompng($folder_scr."/".$img_src);
-      $new_image = imagecreatetruecolor($new_image_width, $new_image_height);
-      imagecopyresampled($new_image, $image, 0, 0, 0, 0, $new_image_width,$new_image_height, $src_width, $src_height);
-      imagepng($new_image, $des_src."/".$img_src."_thumb");
-      imagedestroy($image);
-      imagedestroy($new_image);
-      return true;
+
+    $src_image = $create_funcs[$src_type]($src_path);
+    $new_image = imagecreatetruecolor($new_width, $new_height);
+
+    if ($src_image === false || $new_image === false) {
+        return false;
     }
-    else
-    {
-      return false;
+
+    // Preserve transparency for PNG images
+    if ($src_type === IMAGETYPE_PNG) {
+        imagealphablending($new_image, false);
+        imagesavealpha($new_image, true);
     }
-  }
+
+    if (!imagecopyresampled($new_image, $src_image, 0, 0, 0, 0, $new_width, $new_height, $src_width, $src_height)) {
+        return false;
+    }
+
+    $result = $output_funcs[$src_type]($new_image, $dest_path);
+
+    imagedestroy($src_image);
+    imagedestroy($new_image);
+
+    return $result;
+}
 ?>

@@ -1,119 +1,163 @@
 <?php
-
-/*   
-
-  AMXBans v6.0
-  
-  Copyright 2009, 2010 by SeToY & |PJ|ShOrTy
-
-  This file is part of AMXBans.
-
-    AMXBans is free software, but it's licensed under the
-  Creative Commons - Attribution-NonCommercial-ShareAlike 2.0
-
-    AMXBans is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-    You should have received a copy of the cc-nC-SA along with AMXBans.  
-  If not, see <http://creativecommons.org/licenses/by-nc-sa/2.0/>.
-
-*/
-
-  session_start();
-  
-  if(!$_SESSION["loggedin"]) {
-    header("Location:index.php");
-  }
-  if ( !has_access("websettings_view") )
-  {
+session_start();
+if (!$_SESSION["loggedin"]) {
     header("Location:index.php");
     exit;
-  }
-  
-  $admin_site="ms";
-  $title2 ="_TITLESITE";
-  
-  //Designs suchen
-  $d=opendir($config->path_root."/templates/");
-  while($f=readdir($d)) {
-    if($f=="." || $f=="..") continue;
-    if(is_dir($config->path_root."/templates/".$f)) {
-      $designs[$f]=$f;
-    }
-  }
-  closedir($d);
-  
-  //Banner suchen
-  $banners[""]="---";
-  $d=opendir($config->path_root."/images/banner/");
-  while($f=readdir($d)) {
-    if($f=="." || $f==".." || is_dir($config->path_root."/images/banner/".$f)) continue;
-    if(is_file($config->path_root."/images/banner/".$f) && $f != "index.php") {
-      $banners[$f]=$f;
-    }
-  }
-  closedir($d);
-  
-  //Startseiten suchen
-  //$start_pages[""]="---";
-  $vorbidden=array("index.php","login.php","logout.php","admin.php","search.php","setup.php","motd.php");
-  $d=opendir($config->path_root."/");
-  while($f=readdir($d)) {
-    if($f=="." || $f==".." || is_dir($config->path_root."/".$f)) continue;
-    if(is_file($f) && !in_array($f,$vorbidden) && substr($f,-3,3)=="php") {
-      $start_pages[$f]=$f;
-    }
-  }
-  closedir($d);
-  
-  //Settings speichern
-  if(isset($_POST["save"])) {
-    if ( !has_access("websettings_edit") )
-    {
-      header("Location:index.php");
-      exit;
-    }
-    $update_query="`cookie`='".mysqli_real_escape_string($mysql, $_POST["cookie"])."'";
-    $update_query.=",`design`='".(mysqli_real_escape_string($mysql, $_POST["design"])=="---" ? "":mysqli_real_escape_string($mysql, $_POST["design"]))."'";
-    $update_query.=",`bans_per_page`=".((is_numeric($_POST["bans_per_page"]) && $_POST["bans_per_page"] > 1)?(int)$_POST["bans_per_page"]:10);
-    $update_query.=",`banner`='".(mysqli_real_escape_string($mysql, $_POST["banner"])=="---" ? "":mysqli_real_escape_string($mysql, $_POST["banner"]))."'";
-    $update_query.=",`banner_url`='".mysqli_real_escape_string($mysql, trim($_POST["banner_url"]))."'";
-    $update_query.=",`default_lang`='".mysqli_real_escape_string($mysql, $_POST["language"])."'";
-    $update_query.=",`start_page`='".mysqli_real_escape_string($mysql, $_POST["start_page"])."'";
-    $update_query.=",`show_comment_count`=".(int)$_POST["show_comment_count"];
-    $update_query.=",`show_demo_count`=".(int)$_POST["show_demo_count"];
-    $update_query.=",`show_kick_count`=".(int)$_POST["show_kick_count"];
-    $update_query.=",`use_demo`=".(int)$_POST["use_demo"];
-    $update_query.=",`use_comment`=".(int)$_POST["use_comment"];
-    $update_query.=",`demo_all`=".(int)$_POST["demo_all"];
-    $update_query.=",`comment_all`=".(int)$_POST["comment_all"];
-    $update_query.=",`use_capture`=".(int)$_POST["use_capture"];
-    $update_query.=",`auto_prune`=".(int)$_POST["auto_prune"];
-    $update_query.=",`max_offences`=".((is_numeric($_POST["max_offences"]) && $_POST["max_offences"] > 1)?(int)$_POST["max_offences"]:10);
-    $update_query.=",`max_offences_reason`='".(mysqli_real_escape_string($mysql, $_POST["max_offences_reason"])=="" ? "max offences reached":mysqli_real_escape_string($mysql, $_POST["max_offences_reason"]))."'";
-    $update_query.=",`max_file_size`=".(int)$_POST["max_file_size"];
-    $update_query.=",`file_type`='".(mysqli_real_escape_string($mysql, $_POST["file_type"]))."'";
-    
-    //save it to db
-    $query = mysqli_query($mysql, "UPDATE `".$config->db_prefix."_webconfig` SET ".$update_query." WHERE `id`=1 LIMIT 1") or die (mysqli_error($mysql));
-    $user_msg="_CONFIGSAVED";
-    log_to_db("Websetting config","Changed");
-    
-    //set language
-    $_SESSION["lang"]=mysqli_real_escape_string($mysql, $_POST["language"]);
+}
 
-    // Clearing cache
+if (!has_access("websettings_view")) {
+    header("Location:index.php");
+    exit;
+}
+
+$admin_site = "ms";
+$title2 = "_TITLESITE";
+
+try {
+    // Establish a PDO connection
+    $pdo = new PDO("mysql:host=" . $config->db_host . ";dbname=" . $config->db_db, $config->db_user, $config->db_pass);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    die("Database connection failed: " . $e->getMessage());
+}
+
+// Searching for templates (designs)
+$designs = [];
+$d = opendir($config->path_root . "/templates/");
+while ($f = readdir($d)) {
+    if ($f === "." || $f === "..") {
+        continue;
+    }
+    if (is_dir($config->path_root . "/templates/" . $f)) {
+        $designs[$f] = $f;
+    }
+}
+closedir($d);
+
+// Searching for banners
+$banners = ["" => "---"];
+$d = opendir($config->path_root . "/images/banner/");
+while ($f = readdir($d)) {
+    if ($f === "." || $f === ".." || is_dir($config->path_root . "/images/banner/" . $f)) {
+        continue;
+    }
+    if (is_file($config->path_root . "/images/banner/" . $f) && $f !== "index.php") {
+        $banners[$f] = $f;
+    }
+}
+closedir($d);
+
+// Searching for start pages
+$start_pages = [];
+$forbidden_files = ["index.php", "login.php", "logout.php", "admin.php", "search.php", "setup.php", "motd.php"];
+$d = opendir($config->path_root . "/");
+while ($f = readdir($d)) {
+    if ($f === "." || $f === ".." || is_dir($config->path_root . "/" . $f)) {
+        continue;
+    }
+    if (is_file($f) && !in_array($f, $forbidden_files) && substr($f, -3) === "php") {
+        $start_pages[$f] = $f;
+    }
+}
+closedir($d);
+
+// Saving settings
+if (isset($_POST["save"])) {
+    if (!has_access("websettings_edit")) {
+        header("Location:index.php");
+        exit;
+    }
+
+    // Sanitize and prepare inputs
+    $cookie = htmlspecialchars($_POST["cookie"]);
+    $design = $_POST["design"] === "---" ? "" : htmlspecialchars($_POST["design"]);
+    $bans_per_page = (is_numeric($_POST["bans_per_page"]) && $_POST["bans_per_page"] > 1) ? (int)$_POST["bans_per_page"] : 10;
+    $banner = $_POST["banner"] === "---" ? "" : htmlspecialchars($_POST["banner"]);
+    $banner_url = htmlspecialchars(trim($_POST["banner_url"]));
+    $language = htmlspecialchars($_POST["language"]);
+    $start_page = htmlspecialchars($_POST["start_page"]);
+    $show_comment_count = (int)$_POST["show_comment_count"];
+    $show_demo_count = (int)$_POST["show_demo_count"];
+    $show_kick_count = (int)$_POST["show_kick_count"];
+    $use_demo = (int)$_POST["use_demo"];
+    $use_comment = (int)$_POST["use_comment"];
+    $demo_all = (int)$_POST["demo_all"];
+    $comment_all = (int)$_POST["comment_all"];
+    $use_capture = (int)$_POST["use_capture"];
+    $auto_prune = (int)$_POST["auto_prune"];
+    $max_offences = (is_numeric($_POST["max_offences"]) && $_POST["max_offences"] > 1) ? (int)$_POST["max_offences"] : 10;
+    $max_offences_reason = htmlspecialchars($_POST["max_offences_reason"] === "" ? "max offences reached" : $_POST["max_offences_reason"]);
+    $max_file_size = (int)$_POST["max_file_size"];
+    $file_type = htmlspecialchars($_POST["file_type"]);
+
+    // Prepare update query
+    $update_query = "
+        UPDATE `" . $config->db_prefix . "_webconfig` SET 
+        `cookie` = :cookie, 
+        `design` = :design, 
+        `bans_per_page` = :bans_per_page, 
+        `banner` = :banner, 
+        `banner_url` = :banner_url, 
+        `default_lang` = :language, 
+        `start_page` = :start_page, 
+        `show_comment_count` = :show_comment_count, 
+        `show_demo_count` = :show_demo_count, 
+        `show_kick_count` = :show_kick_count, 
+        `use_demo` = :use_demo, 
+        `use_comment` = :use_comment, 
+        `demo_all` = :demo_all, 
+        `comment_all` = :comment_all, 
+        `use_capture` = :use_capture, 
+        `auto_prune` = :auto_prune, 
+        `max_offences` = :max_offences, 
+        `max_offences_reason` = :max_offences_reason, 
+        `max_file_size` = :max_file_size, 
+        `file_type` = :file_type 
+        WHERE `id` = 1 LIMIT 1
+    ";
+
+    // Execute update query with prepared statement
+    $stmt = $pdo->prepare($update_query);
+    $stmt->execute([
+        'cookie' => $cookie,
+        'design' => $design,
+        'bans_per_page' => $bans_per_page,
+        'banner' => $banner,
+        'banner_url' => $banner_url,
+        'language' => $language,
+        'start_page' => $start_page,
+        'show_comment_count' => $show_comment_count,
+        'show_demo_count' => $show_demo_count,
+        'show_kick_count' => $show_kick_count,
+        'use_demo' => $use_demo,
+        'use_comment' => $use_comment,
+        'demo_all' => $demo_all,
+        'comment_all' => $comment_all,
+        'use_capture' => $use_capture,
+        'auto_prune' => $auto_prune,
+        'max_offences' => $max_offences,
+        'max_offences_reason' => $max_offences_reason,
+        'max_file_size' => $max_file_size,
+        'file_type' => $file_type
+    ]);
+
+    $user_msg = "_CONFIGSAVED";
+    log_to_db("Websetting config", "Changed");
+
+    // Set language
+    $_SESSION["lang"] = $language;
+
+    // Clear Smarty cache
     $smarty->clearCompiledTemplate();
-  }
-  
-  //get and set websettings
-  $vars=sql_set_websettings();
+}
 
-  $smarty->assign("yesno_select",array("_YES","_NO"));
-  $smarty->assign("yesno_values",array(1,0));
-  $smarty->assign("vars",$vars);
-  $smarty->assign("designs",$designs);
-  $smarty->assign("banners",$banners);
-  $smarty->assign("start_pages",$start_pages);
+// Fetch and set web settings
+$vars = sql_set_websettings();
+
+$smarty->assign("yesno_select", ["_YES", "_NO"]);
+$smarty->assign("yesno_values", [1, 0]);
+$smarty->assign("vars", $vars);
+$smarty->assign("designs", $designs);
+$smarty->assign("banners", $banners);
+$smarty->assign("start_pages", $start_pages);
 ?>

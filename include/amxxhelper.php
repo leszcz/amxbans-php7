@@ -6,7 +6,7 @@
 */
 
 require_once("config.inc.php");
-$id = $_GET["id"];
+$id = (int) $_GET["id"];
 ?>
 
 <!DOCTYPE html>

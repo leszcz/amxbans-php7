@@ -1,7 +1,7 @@
 <?php
+declare(strict_types=1);
 
 /*   
-
   AMXBans v6.0
   
   Copyright 2009, 2010 by SeToY & |PJ|ShOrTy
@@ -17,25 +17,48 @@
 
     You should have received a copy of the cc-nC-SA along with AMXBans.  
   If not, see <http://creativecommons.org/licenses/by-nc-sa/2.0/>.
-
 */
 
-function log_to_db($action,$remarks) {
-  global $config;
-  $sqlcon = mysqli_connect($config->db_host,$config->db_user,$config->db_pass, $config->db_db);
+require_once 'sql.inc.php';
 
-  $query = mysqli_query($sqlcon, "INSERT INTO `".$config->db_prefix."_logs` (
-      `id` ,
-      `timestamp` ,
-      `ip` ,
-      `username` ,
-      `action` ,
-      `remarks` 
-      )
-      VALUES (
-      NULL , UNIX_TIMESTAMP(), '".$_SERVER["REMOTE_ADDR"]."', '".$_SESSION["uname"]."', '".sql_safe($action)."', '".sql_safe($remarks)."'
-      );
-    ") or die (mysqli_error());
+/**
+ * Logs an action to the database
+ *
+ * @param string $action The action to log
+ * @param string $remarks Additional remarks about the action
+ * @throws PDOException If there's an error with the database operation
+ */
+function log_to_db(string $action, string $remarks): void {
+    global $config;
+    
+    try {
+        $pdo = getPDO();
+        
+        $query = "INSERT INTO `" . $config->db_prefix . "_logs` (
+            `timestamp`,
+            `ip`,
+            `username`,
+            `action`,
+            `remarks`
+        ) VALUES (
+            UNIX_TIMESTAMP(),
+            :ip,
+            :username,
+            :action,
+            :remarks
+        )";
+        
+        $stmt = $pdo->prepare($query);
+        $stmt->execute([
+            ':ip' => $_SERVER["REMOTE_ADDR"],
+            ':username' => $_SESSION["uname"] ?? '',
+            ':action' => $action,
+            ':remarks' => $remarks
+        ]);
+    } catch (PDOException $e) {
+        // Log the error or handle it as appropriate for your application
+        error_log("Database error in log_to_db: " . $e->getMessage());
+        throw $e; // Re-throw the exception if you want calling code to handle it
+    }
 }
-
 ?>

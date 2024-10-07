@@ -21,9 +21,10 @@
 */
 
 // AMXBans DB structure v6.0
+$dbprefix = $_SESSION["dbprefix"];
 
 //_admins_servers
-$table_create[$_SESSION["dbprefix"]."_admins_servers"]="
+$table_create[$dbprefix."_admins_servers"]="
   admin_id int(11) NOT NULL,
   server_id int(11) NULL,
   custom_flags varchar(32) NOT NULL,
@@ -31,7 +32,7 @@ $table_create[$_SESSION["dbprefix"]."_admins_servers"]="
 ";
 
 //_amxadmins
-$table_create[$_SESSION["dbprefix"]."_amxadmins"]="
+$table_create[$dbprefix."_amxadmins"]="
   id int(12)  NOT NULL auto_increment,
   username varchar(32) NULL,
   password varchar(50) NULL,
@@ -48,7 +49,7 @@ $table_create[$_SESSION["dbprefix"]."_amxadmins"]="
   KEY steamid (steamid)
 ";     
 //_bans
-$table_create[$_SESSION["dbprefix"]."_bans"]="
+$table_create[$dbprefix."_bans"]="
   bid int(11)  NOT NULL auto_increment,
   player_ip varchar(32) NULL,
   player_id varchar(35) NULL,
@@ -71,7 +72,7 @@ $table_create[$_SESSION["dbprefix"]."_bans"]="
 ";
 
 //_bans_edits
-$table_create[$_SESSION["dbprefix"]."_bans_edit"]="
+$table_create[$dbprefix."_bans_edit"]="
   `id` int(11) NOT NULL auto_increment,
   `bid` int(11) NOT NULL,
   `edit_time` int(11) NOT NULL,
@@ -81,7 +82,7 @@ $table_create[$_SESSION["dbprefix"]."_bans_edit"]="
 ";
 
 //_bbcode
-$table_create[$_SESSION["dbprefix"]."_bbcode"]="
+$table_create[$dbprefix."_bbcode"]="
   id int(11)  NOT NULL auto_increment,
   open_tag varchar(32) NULL,
   close_tag varchar(32) NULL,
@@ -91,7 +92,7 @@ $table_create[$_SESSION["dbprefix"]."_bbcode"]="
 ";
 
 //_comments
-$table_create[$_SESSION["dbprefix"]."_comments"]="
+$table_create[$dbprefix."_comments"]="
   id int(11)  NOT NULL auto_increment,
   name varchar(35) NULL,
   comment text NULL,
@@ -103,7 +104,7 @@ $table_create[$_SESSION["dbprefix"]."_comments"]="
 ";
 
 //_files
-$table_create[$_SESSION["dbprefix"]."_files"]="
+$table_create[$dbprefix."_files"]="
   id int(11)  NOT NULL auto_increment,
   upload_time int(11) NULL,
   down_count int(11) NULL,
@@ -119,7 +120,7 @@ $table_create[$_SESSION["dbprefix"]."_files"]="
 ";
 
 //_levels
-$table_create[$_SESSION["dbprefix"]."_levels"]="
+$table_create[$dbprefix."_levels"]="
   level int(12)  NOT NULL,
   bans_add enum('yes','no') NULL DEFAULT 'no',
   bans_edit enum('yes','no','own') NULL DEFAULT 'no',
@@ -141,7 +142,7 @@ $table_create[$_SESSION["dbprefix"]."_levels"]="
 ";
 
 //_logs
-$table_create[$_SESSION["dbprefix"]."_logs"]="
+$table_create[$dbprefix."_logs"]="
   id int(11)  NOT NULL auto_increment,
   timestamp int(11) NULL,
   ip varchar(32) NULL,
@@ -152,7 +153,7 @@ $table_create[$_SESSION["dbprefix"]."_logs"]="
 ";
 
 //_modulconfig
-$table_create[$_SESSION["dbprefix"]."_modulconfig"]="
+$table_create[$dbprefix."_modulconfig"]="
   id int(11)  NOT NULL auto_increment,
   menuname varchar(32) NULL,
   name varchar(32) NULL,
@@ -162,7 +163,7 @@ $table_create[$_SESSION["dbprefix"]."_modulconfig"]="
 ";
 
 //_reasons
-$table_create[$_SESSION["dbprefix"]."_reasons"]="
+$table_create[$dbprefix."_reasons"]="
   id int(11)  NOT NULL auto_increment,
   reason varchar(100) NULL,
   static_bantime int(11) NOT NULL DEFAULT '0',
@@ -170,14 +171,14 @@ $table_create[$_SESSION["dbprefix"]."_reasons"]="
 ";
 
 //_reasons_set
-$table_create[$_SESSION["dbprefix"]."_reasons_set"]="
+$table_create[$dbprefix."_reasons_set"]="
   id int(11)  NOT NULL auto_increment,
   setname varchar(32) NULL,
   PRIMARY KEY (id)
 ";
 
 //_reasons_to_set
-$table_create[$_SESSION["dbprefix"]."_reasons_to_set"]="
+$table_create[$dbprefix."_reasons_to_set"]="
   id int(11)  NOT NULL auto_increment,
   setid int(11) NOT NULL,
   reasonid int(11) NOT NULL,
@@ -185,7 +186,7 @@ $table_create[$_SESSION["dbprefix"]."_reasons_to_set"]="
 ";
 
 //_serverinfo
-$table_create[$_SESSION["dbprefix"]."_serverinfo"]="
+$table_create[$dbprefix."_serverinfo"]="
   id int(11)  NOT NULL auto_increment,
   timestamp int(11) NULL,
   hostname varchar(100) NULL DEFAULT 'Unknown',
@@ -202,7 +203,7 @@ $table_create[$_SESSION["dbprefix"]."_serverinfo"]="
 ";
 
 //_smilies
-$table_create[$_SESSION["dbprefix"]."_smilies"]="
+$table_create[$dbprefix."_smilies"]="
   id int(5)  NOT NULL auto_increment,
   code varchar(32) NULL,
   url varchar(32) NULL,
@@ -211,7 +212,7 @@ $table_create[$_SESSION["dbprefix"]."_smilies"]="
 ";
 
 //_usermenu
-$table_create[$_SESSION["dbprefix"]."_usermenu"]="
+$table_create[$dbprefix."_usermenu"]="
   id int(11)  NOT NULL auto_increment,
   pos int(11) NULL,
   activ tinyint(1) NOT NULL DEFAULT '1',
@@ -223,10 +224,10 @@ $table_create[$_SESSION["dbprefix"]."_usermenu"]="
 ";
 
 //_webadmins
-$table_create[$_SESSION["dbprefix"]."_webadmins"]="
+$table_create[$dbprefix."_webadmins"]="
   id int(12)  NOT NULL auto_increment,
   username varchar(32) NULL,
-  password varchar(32) NULL,
+  password varchar(255) NULL,
   level int(11) NULL DEFAULT '99',
   logcode varchar(64) NULL,
   email varchar(64) NULL,
@@ -236,7 +237,7 @@ $table_create[$_SESSION["dbprefix"]."_webadmins"]="
 ";
 
 //_webconfig
-$table_create[$_SESSION["dbprefix"]."_webconfig"]="
+$table_create[$dbprefix."_webconfig"]="
   id int(11)  NOT NULL auto_increment,
   cookie varchar(32) NULL,
   bans_per_page int(11) NULL,
@@ -262,7 +263,7 @@ $table_create[$_SESSION["dbprefix"]."_webconfig"]="
 ";
   
 //_flagged
-$table_create[$_SESSION["dbprefix"]."_flagged"]="
+$table_create[$dbprefix."_flagged"]="
   `fid` int(11) NOT NULL auto_increment,
   `player_ip` varchar(32) default NULL,
   `player_id` varchar(35) default NULL,

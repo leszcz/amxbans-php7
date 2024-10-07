@@ -7,14 +7,14 @@
 
   This file is part of AMXBans.
 
-    AMXBans is free software, but it's licensed under the
+  AMXBans is free software, but it's licensed under the
   Creative Commons - Attribution-NonCommercial-ShareAlike 2.0
 
-    AMXBans is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+  AMXBans is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 
-    You should have received a copy of the cc-nC-SA along with AMXBans.  
+  You should have received a copy of the cc-nC-SA along with AMXBans.  
   If not, see <http://creativecommons.org/licenses/by-nc-sa/2.0/>.
 */
 
@@ -34,14 +34,12 @@ function return_bytes($val) {
 }
 
 function is__writable($path) {
-    // will work in despite of Windows ACLs bug
-    // NOTE: use a trailing slash for folders!!!
-    if (substr($path, -1) == '/') // recursively return a temporary file path
+    if (substr($path, -1) == '/') {
         return is__writable($path . uniqid(mt_rand()) . '.tmp');
-    else if (is_dir($path))
+    } else if (is_dir($path)) {
         return is__writable($path . '/' . uniqid(mt_rand()) . '.tmp');
+    }
     
-    // check tmp file for read/write capabilities
     $rm = file_exists($path);
     $f = @fopen($path, 'a');
     if ($f === false)
@@ -53,61 +51,93 @@ function is__writable($path) {
     return true;
 }
 
-function sql_get_privilege($mysql) {
+function sql_get_privilege($pdo) {
     $privileges = [];
-    // global privileges
-    $query = mysqli_query($mysql, "SHOW GRANTS FOR CURRENT_USER()") or die(mysqli_error($mysql));
-    $array = mysqli_fetch_assoc($query);
-    foreach ($array as $v) {
-        if (stristr($v, "ALL PRIVILEGES")) {
+    
+    // Get the user grants from the SHOW GRANTS command
+    $query = $pdo->query("SHOW GRANTS FOR CURRENT_USER()");
+    $grants = $query->fetchAll(PDO::FETCH_COLUMN);
+    
+    foreach ($grants as $grant) {
+        // Check if the user has ALL PRIVILEGES
+        if (stristr($grant, "ALL PRIVILEGES")) {
             $privileges = ["SELECT", "INSERT", "UPDATE", "DELETE", "CREATE"];
             break;
         }
-        if (stristr($v, "SELECT")) $privileges[] = "SELECT";
-        if (stristr($v, "INSERT")) $privileges[] = "INSERT";
-        if (stristr($v, "UPDATE")) $privileges[] = "UPDATE";
-        if (stristr($v, "DELETE")) $privileges[] = "DELETE";
-        if (stristr($v, "CREATE")) $privileges[] = "CREATE";
+        
+        // Parse the individual privileges
+        if (stristr($grant, "SELECT")) $privileges[] = "SELECT";
+        if (stristr($grant, "INSERT")) $privileges[] = "INSERT";
+        if (stristr($grant, "UPDATE")) $privileges[] = "UPDATE";
+        if (stristr($grant, "DELETE")) $privileges[] = "DELETE";
+        if (stristr($grant, "CREATE")) $privileges[] = "CREATE";
     }
-    // database privileges  
-    mysqli_select_db($mysql, "INFORMATION_SCHEMA") or die(mysqli_error($mysql));
-    $db = mysqli_real_escape_string($mysql, $_SESSION["dbdb"]);
-    // fix for plesk
-    $db2 = str_replace("_", "\_", $db);
-    $query = mysqli_query($mysql, "SELECT * FROM `SCHEMA_PRIVILEGES` WHERE `GRANTEE` LIKE '\'" . ($_SESSION["dbuser"]) . "\'%' AND (`TABLE_SCHEMA`='" . $db . "' OR `TABLE_SCHEMA`='" . $db2 . "' OR `TABLE_SCHEMA`='mysql')") or die(mysqli_error($mysql));
-    while ($result = mysqli_fetch_object($query)) {
+    
+    // Now check specifically for database-level privileges in the information_schema
+    $db = $pdo->quote($_SESSION["dbdb"]);
+    
+    $query = $pdo->query("
+        SELECT PRIVILEGE_TYPE 
+        FROM information_schema.SCHEMA_PRIVILEGES 
+        WHERE GRANTEE LIKE " . $pdo->quote('%'.$_SESSION["dbuser"].'%') . " 
+        AND TABLE_SCHEMA = $db
+    ");
+    
+    while ($result = $query->fetch(PDO::FETCH_OBJ)) {
         $privileges[] = $result->PRIVILEGE_TYPE;
     }
+
+    // Ensure unique privileges
     return array_unique($privileges);
 }
 
 function sql_connect() {
-    $mysql = @mysqli_connect($_SESSION["dbhost"], $_SESSION["dbuser"], $_SESSION["dbpass"], $_SESSION["dbdb"]);
-    if (!$mysql) {
+    try {
+        $pdo = new PDO("mysql:host=" . $_SESSION["dbhost"] . ";dbname=" . $_SESSION["dbdb"], $_SESSION["dbuser"], $_SESSION["dbpass"]);
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        return $pdo;
+    } catch (PDOException $e) {
         return false;
     }
-    return true;
 }
 
 function sql_create_table($table, $structure) {
-    $mysql = @mysqli_connect($_SESSION["dbhost"], $_SESSION["dbuser"], $_SESSION["dbpass"], $_SESSION["dbdb"]);
-    $query = @mysqli_query($mysql, "CREATE TABLE `" . $table . "` (" . $structure . ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
-    if (!$query) return mysqli_error($mysql);
-    return "_CREATED";
+    try {
+		$pdo = sql_connect();
+        $query = $pdo->exec("CREATE TABLE `" . $table . "` (" . $structure . ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+        if ($query === false) {
+            return $pdo->errorInfo()[2];
+        }
+        return "_CREATED";
+    } catch (PDOException $e) {
+        return $e->getMessage();
+    }
 }
 
 function sql_insert_data($table, $data) {
-    $mysql = @mysqli_connect($_SESSION["dbhost"], $_SESSION["dbuser"], $_SESSION["dbpass"], $_SESSION["dbdb"]);
-    $query = @mysqli_query($mysql, "INSERT INTO `" . $table . "` " . $data);
-    if (!$query) return "_FAILED";
-    return "_INSERTED";
+    try {
+		$pdo = sql_connect();
+        $query = $pdo->exec("INSERT INTO `" . $table . "` " . $data);
+        if ($query === false) {
+            return "_FAILED";
+        }
+        return "_INSERTED";
+    } catch (PDOException $e) {
+        return "_FAILED";
+    }
 }
 
 function sql_insert_setting($sqlquery) {
-    $mysql = @mysqli_connect($_SESSION["dbhost"], $_SESSION["dbuser"], $_SESSION["dbpass"], $_SESSION["dbdb"]);
-    $query = @mysqli_query($mysql, $sqlquery);
-    if (!$query) return "_FAILED";
-    return "_INSERTED";
+    try {
+		$pdo = sql_connect();
+        $query = $pdo->exec($sqlquery);
+        if ($query === false) {
+            return "_FAILED";
+        }
+        return "_INSERTED";
+    } catch (PDOException $e) {
+        return "_FAILED";
+    }
 }
 
 function write_cfg_file($file, $content) {

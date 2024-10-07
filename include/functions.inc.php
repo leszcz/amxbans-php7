@@ -1,7 +1,7 @@
 <?php
+declare(strict_types=1);
 
 /*   
-
   AMXBans v6.0
   
   Copyright 2009, 2010 by SeToY & |PJ|ShOrTy
@@ -17,78 +17,86 @@
 
     You should have received a copy of the cc-nC-SA along with AMXBans.  
   If not, see <http://creativecommons.org/licenses/by-nc-sa/2.0/>.
-
 */
 
-function check_size($value,$minsize,$maxsize,$prefixlang) {
-  if(!$value && $minsize) {
-    return "_NO".$prefixlang;
-  } else if(strlen($value) < $minsize) {
-    return "_".$prefixlang."TOSHORT";
-  } else if(strlen($value) > $maxsize) {
-    return "_".$prefixlang."TOLONG"; 
-  }
+function check_size(string $value, int $minsize, int $maxsize, string $prefixlang): ?string {
+    if (!$value && $minsize) {
+        return "_NO" . $prefixlang;
+    } elseif (strlen($value) < $minsize) {
+        return "_" . $prefixlang . "TOSHORT";
+    } elseif (strlen($value) > $maxsize) {
+        return "_" . $prefixlang . "TOLONG"; 
+    }
+    return null;
 }
 
-// validate string
-//
-// value: STRING
-// types: name, email, steamid, ip, amxxaccess, amxxflags
-// minsize: INT
-// maxsize: INT
-// prefixlang: STRING
-function validate_value($value,$type='name',&$msg="",$minsize=1,$maxsize=31,$prefixlang="") {
-
-  switch($type) {
-    case 'name':
-      $msg=check_size($value,$minsize,$maxsize,$prefixlang);
-      if($msg) return false;
-      return true;
-      break;
-    case 'email':
-      #if(!preg_match("/^[0-9,a-z,A-Z_%+-]{2,}@[0-9,a-z,A-Z]{2,}.[0-9,a-z,A-Z]{2,6}$/",$value)) { $msg="_EMAILINVALID"; return false; }
-      if(!preg_match("/^[a-zA-Z0-9-_.]{2,}@[a-zA-Z0-9-_.]{2,}.[a-zA-Z]{2,6}$/",$value)) { $msg="_EMAILINVALID"; return false; }
-      return true;
-      break;
-    case 'steamid':
-      if(!preg_match("/^STEAM_0:(0|1):[0-9]{1,10}$/",$value)) { $msg="_STEAMIDINVALID"; return false; }
-      return true;
-      break;
-    case 'ip':
-      if(!preg_match("/^[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}$/",$value)) { $msg="_IPINVALID"; return false; }
-      return true;
-      break;
-    case 'amxxaccess':
-      if(!preg_match("/^[a-u,z]{1,22}$/",$value)) { $msg="_ACCESSINVALID"; return false; }
-      return true;
-      break;
-    case 'amxxflags':
-      if((strrpos($value,"b")!==false && strrpos($value,"c")!==false)
-        || (strrpos($value,"b")!==false && strrpos($value,"d")!==false)
-        || (strrpos($value,"c")!==false && strrpos($value,"d")!==false)) { $msg="_FLAGSINVALID"; return false; }
-      if(strrpos($value,"a")===false && strrpos($value,"b")===false && strrpos($value,"c")===false && strrpos($value,"d")===false) { $msg="_FLAGSBCDMISSING"; return false; }
-      if(!preg_match("/^[a-e,k]{1,4}$/",$value)) { $msg="_FLAGSINVALID"; return false; }
-      return true;
-      break;
-    default:
-      return false;
-      break;
-  }
-  return false;
-
+function validate_value(
+    string $value, 
+    string $type = 'name', 
+    string &$msg = "", 
+    int $minsize = 1, 
+    int $maxsize = 31, 
+    string $prefixlang = ""
+): bool {
+    switch($type) {
+        case 'name':
+            $msg = check_size($value, $minsize, $maxsize, $prefixlang) ?? "";
+            return empty($msg);
+        case 'email':
+            if (!filter_var($value, FILTER_VALIDATE_EMAIL)) {
+                $msg = "_EMAILINVALID";
+                return false;
+            }
+            return true;
+        case 'steamid':
+            if (!preg_match("/^STEAM_0:(0|1):[0-9]{1,10}$/", $value)) {
+                $msg = "_STEAMIDINVALID";
+                return false;
+            }
+            return true;
+        case 'ip':
+            if (!filter_var($value, FILTER_VALIDATE_IP)) {
+                $msg = "_IPINVALID";
+                return false;
+            }
+            return true;
+        case 'amxxaccess':
+            if (!preg_match("/^[a-u,z]{1,22}$/", $value)) {
+                $msg = "_ACCESSINVALID";
+                return false;
+            }
+            return true;
+        case 'amxxflags':
+            if ((str_contains($value, "b") && str_contains($value, "c"))
+                || (str_contains($value, "b") && str_contains($value, "d"))
+                || (str_contains($value, "c") && str_contains($value, "d"))) {
+                $msg = "_FLAGSINVALID";
+                return false;
+            }
+            if (!str_contains($value, "a") && !str_contains($value, "b") && !str_contains($value, "c") && !str_contains($value, "d")) {
+                $msg = "_FLAGSBCDMISSING";
+                return false;
+            }
+            if (!preg_match("/^[a-e,k]{1,4}$/", $value)) {
+                $msg = "_FLAGSINVALID";
+                return false;
+            }
+            return true;
+        default:
+            return false;
+    }
 }
-function sql_safe($value) {
-  global $config;
-  $mysql = mysqli_connect($config->db_host,$config->db_user,$config->db_pass, $config->db_db);
-  if ( function_exists('get_magic_quotes_gpc') ) $value=stripslashes_recursive($value); //function in config.inc.php
-  return mysqli_real_escape_string($mysql, $value);
-}
-function html_safe($value) {
-  if ( function_exists('get_magic_quotes_gpc') ) $value=stripslashes_recursive($value); //function in config.inc.php
-  return htmlspecialchars($value, ENT_QUOTES);
+
+function sql_safe(string $value): string {
+    $pdo = getPDO();
+    return $pdo->quote($value);
 }
 
-function _substr($str, $length, $minword = 3) {
+function html_safe(string $value): string {
+    return htmlspecialchars($value, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+}
+
+function _substr(string $str, int $length, int $minword = 3): string {
     $sub = '';
     $len = 0;
     
@@ -105,48 +113,33 @@ function _substr($str, $length, $minword = 3) {
     return $sub . (($len < strlen($str)) ? '...' : '');
 }
 
-function construct_vb_page_nav($current, $total, $pagenavpages, $pagenavsarr) {
-  $result = array();
+function construct_vb_page_nav(int $current, int $total, int $pagenavpages, array $pagenavsarr): array {
+    $result = [
+        'prev' => $current > 1 ? $current - 1 : false,
+        'next' => $current < $total ? $current + 1 : false,
+        'pages' => [],
+        'first' => false,
+        'last' => false
+    ];
 
-  if ($current > 1) {
-    $result['prev'] = $current - 1;
-  } else {
-    $result['prev'] = false;
-  }
-  if ($current < $total) {
-    $result['next'] = $current + 1;
-  } else {
-    $result['next'] = false;
-  }
+    for ($curpage = 1; $curpage <= $total; $curpage++) {
+        if (abs($curpage - $current) >= $pagenavpages && $pagenavpages != 0) {
+            if ($curpage == 1) {
+                $result['first'] = $curpage;
+            }
+            if ($curpage == $total) {
+                $result['last'] = $curpage;
+            }
 
-  $curpage = 0;
-  $result['pages'] = array();
-  $result['first'] = false;
-  $result['last'] = false;
-  while ($curpage++ < $total)
-  {
-    if (abs($curpage - $current) >= $pagenavpages && $pagenavpages != 0) {
-      if ($curpage == 1) {
-        $result['first'] = $curpage;
-      }
-      if ($curpage == $total) {
-        $result['last'] = $curpage;
-      }
-
-      // generate relative links (eg. +10,etc).
-      if (in_array(abs($curpage - $current), $pagenavsarr) && $curpage != 1 && $curpage != $total) {
-        $result['pages'][] = array('number' => $curpage, 'current' => false);
-      }
-    } else {
-      if ($curpage == $current) {
-        $result['pages'][] = array('number' => $curpage, 'current' => true);
-      }
-      else {
-        $result['pages'][] = array('number' => $curpage, 'current' => false);
-      }
+            // generate relative links (eg. +10,etc).
+            if (in_array(abs($curpage - $current), $pagenavsarr) && $curpage != 1 && $curpage != $total) {
+                $result['pages'][] = ['number' => $curpage, 'current' => false];
+            }
+        } else {
+            $result['pages'][] = ['number' => $curpage, 'current' => ($curpage == $current)];
+        }
     }
-  }
 
-  return $result;
+    return $result;
 }
 ?>
