@@ -1,2 +1,3 @@
+include/db.config.inc.php
 templates_c/*
 *.zip
