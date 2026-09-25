@@ -12,6 +12,7 @@ Ta dokumentacja opisuje wewnętrzną budowę AMXBans 7 (PHP 8). Instrukcja insta
 | [frontend.md](frontend.md) | Tailwind CSS 4, komponenty Alpine.js (CSP), budowanie zasobów |
 | [translations.md](translations.md) | Pliki językowe i dodawanie tekstów |
 | [testing.md](testing.md) | Środowisko lokalne, dane testowe, testy funkcjonalne |
+| [deployment.md](deployment.md) | GitHub Actions: CI, wdrożenie na produkcję (rsync/SSH), wydania |
 
 ## Szybki start
 

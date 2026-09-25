@@ -1,0 +1,231 @@
+# CI and production deployment.
+#
+# - Every pull request and push runs the tests (PHP lint 8.1-8.4, PHPStan, CSS build check,
+#   functional tests against MariaDB).
+# - A push to "main" (or a manual run) deploys to production with rsync over SSH,
+#   but only after the tests passed.
+#
+# Configuration (Settings → Secrets and variables → Actions, or in the "production" environment):
+#   secrets.DEPLOY_HOST         server host name or IP                         (required)
+#   secrets.DEPLOY_USER         SSH user                                       (required)
+#   secrets.DEPLOY_KEY          private SSH key (OpenSSH format)               (required)
+#   secrets.DEPLOY_PATH         absolute path of the site on the server        (required)
+#   secrets.DEPLOY_PORT         SSH port                                       (optional, default 22)
+#   secrets.DEPLOY_KNOWN_HOSTS  output of `ssh-keyscan -p PORT HOST`           (recommended)
+#   vars.DEPLOY_URL             public URL checked after the deployment        (optional)
+# Each value may also be defined as a variable (vars.*) instead of a secret.
+#
+# Full description: docs/deployment.md
+
+name: CI & Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only show what would change on the server (rsync --dry-run)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  lint:
+    name: PHP ${{ matrix.php }} lint
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.1', '8.2', '8.3', '8.4']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_mysql, mbstring, gd
+          coverage: none
+      - name: Lint PHP files
+        run: |
+          git ls-files -z '*.php' ':!:vendor/**' ':!:language/**' ':!:install/language/**' \
+            | xargs -0 -n1 -P4 php -l > /dev/null
+
+  test:
+    name: Static analysis & functional tests
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: root
+          MARIADB_DATABASE: amxbans
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, mbstring, gd
+          tools: phpstan
+          coverage: none
+
+      - name: PHPStan
+        run: phpstan analyse --no-progress
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Compiled CSS is up to date
+        run: |
+          npm ci
+          npm run build:css
+          git diff --exit-code assets/dist/app.css \
+            || { echo "::error::assets/dist/app.css is outdated - run 'npm run build:css' and commit it."; exit 1; }
+
+      - name: Configure test database
+        run: |
+          cat > include/db.config.inc.php <<'PHP'
+          <?php
+          $config->db_host = '127.0.0.1';
+          $config->db_user = 'root';
+          $config->db_pass = 'root';
+          $config->db_db = 'amxbans';
+          $config->db_prefix = 'amx';
+          PHP
+          php tests/seed.php
+
+      - name: Functional tests
+        env:
+          AMXB_URL: http://127.0.0.1:8080/
+          AMXB_MYSQL: mysql -h127.0.0.1 -uroot -proot amxbans
+        run: |
+          pip install --quiet requests
+          php -S 127.0.0.1:8080 -t . > /tmp/php-server.log 2>&1 &
+          sleep 1
+          python3 tests/functional_test.py
+      - name: PHP server log
+        if: failure()
+        run: cat /tmp/php-server.log
+
+  deploy:
+    name: Deploy to production
+    needs: [lint, test]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.DEPLOY_URL }}
+    concurrency:
+      group: production-deploy
+      cancel-in-progress: false
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST || vars.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER || vars.DEPLOY_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH || vars.DEPLOY_PATH }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT || vars.DEPLOY_PORT || '22' }}
+      DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS || vars.DEPLOY_KNOWN_HOSTS }}
+      DEPLOY_URL: ${{ vars.DEPLOY_URL || secrets.DEPLOY_URL }}
+      DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+    steps:
+      - name: Check configuration
+        id: config
+        env:
+          HAS_KEY: ${{ secrets.DEPLOY_KEY != '' }}
+        run: |
+          missing=""
+          for v in DEPLOY_HOST DEPLOY_USER DEPLOY_PATH; do [ -n "${!v}" ] || missing="$missing $v"; done
+          [ "$HAS_KEY" = "true" ] || missing="$missing DEPLOY_KEY"
+          if [ -n "$missing" ]; then
+            echo "::warning::Deployment skipped - missing secrets:$missing (see docs/deployment.md)"
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+          # safety net: rsync --delete must never target a system directory
+          case "${DEPLOY_PATH%/}" in
+            /|/home|/root|/var|/var/www|/srv|/usr|/etc) echo "::error::DEPLOY_PATH '$DEPLOY_PATH' is not a site directory."; exit 1 ;;
+          esac
+
+      - uses: actions/checkout@v4
+        if: steps.config.outputs.ready == 'true'
+
+      - name: Build package
+        if: steps.config.outputs.ready == 'true'
+        run: build/package.sh
+
+      - name: Set up SSH
+        if: steps.config.outputs.ready == 'true'
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if [ -n "$DEPLOY_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            echo "::warning::DEPLOY_KNOWN_HOSTS is not set - trusting the host key returned by ssh-keyscan."
+            ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" > ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host production
+            HostName $DEPLOY_HOST
+            Port $DEPLOY_PORT
+            User $DEPLOY_USER
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+
+      # Files that exist only on the server (configuration, uploads, backups, compiled
+      # templates, custom banners and designs) are protected ("P") from --delete.
+      # setup.php is uploaded (needed for a first installation) and removed afterwards
+      # when the site is already configured.
+      - name: Upload files (rsync)
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          rsync -rlptz --delete $DRY_RUN --itemize-changes \
+            --filter='P /include/db.config.inc.php' \
+            --filter='P /include/files/***' \
+            --filter='P /include/backup/***' \
+            --filter='P /templates_c/***' \
+            --filter='P /temp/***' \
+            --filter='P /images/banner/***' \
+            --filter='P /templates/***' \
+            --filter='P /.well-known/***' \
+            --filter='P /.user.ini' \
+            dist/amxbans/ "production:$DEPLOY_PATH/"
+
+      - name: Post-deploy tasks
+        if: steps.config.outputs.ready == 'true' && env.DRY_RUN == ''
+        run: |
+          ssh production bash -s -- "$DEPLOY_PATH" <<'EOF'
+          set -e
+          cd "$1"
+          mkdir -p templates_c include/files include/backup temp
+          # recompile templates with the new version
+          find templates_c -maxdepth 1 -name '*.php' -delete
+          # the installer is not needed on an installed site
+          if [ -f include/db.config.inc.php ] && [ -f setup.php ]; then rm -f setup.php; fi
+          echo "Deployed $(grep -o "AMXB_VERSION', '[^']*" include/bootstrap.php | cut -d"'" -f3)"
+          EOF
+
+      - name: Smoke test
+        if: steps.config.outputs.ready == 'true' && env.DRY_RUN == '' && env.DEPLOY_URL != ''
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' -L "${DEPLOY_URL%/}/ban_list.php")
+          echo "ban_list.php -> HTTP $code"
+          [ "$code" = "200" ]

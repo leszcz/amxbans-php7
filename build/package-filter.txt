@@ -1,0 +1,30 @@
+# rsync filter rules: what is NOT part of the production package / deployment.
+# "+" = keep (checked first), "-" = leave out. Used by build/package.sh and the deploy workflow.
+
+# development files
+- /.git/
+- /.github/
+- /.gitignore
+- /node_modules/
+- /tests/
+- /docs/
+- /build/
+- /assets/src/
+- /package.json
+- /package-lock.json
+- /phpstan.neon.dist
+- /phpdoc.dist.xml
+- /CONTRIBUTING.md
+- /dist/
+- .DS_Store
+
+# local configuration and runtime data (never shipped, never overwritten)
+- /include/db.config.inc.php
++ /include/files/index.php
+- /include/files/*
+- /include/backup/*.sql
++ /templates_c/.htaccess
+- /templates_c/*
++ /temp/.htaccess
++ /temp/index.php
+- /temp/*

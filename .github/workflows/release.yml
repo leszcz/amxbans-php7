@@ -1,0 +1,65 @@
+# Publishes a GitHub release when a version tag is pushed:
+#
+#   git tag -a v7.0.1 -m "AMXBans 7.0.1" && git push origin v7.0.1
+#
+# The tag must match AMXB_VERSION in include/bootstrap.php. The release gets the
+# production package (amxbans-<version>.zip, ready for FTP upload) with a SHA-256
+# checksum, and the notes of the matching "## <version>" section of CHANGELOG.md.
+
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check version
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          app=$(sed -n "s/.*define('AMXB_VERSION', '\([^']*\)').*/\1/p" include/bootstrap.php)
+          if [ "$tag" != "$app" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match AMXB_VERSION $app in include/bootstrap.php"
+            exit 1
+          fi
+          echo "version=$app" >> "$GITHUB_OUTPUT"
+
+      - name: Build package
+        run: |
+          build/package.sh --zip
+          cd dist && sha256sum "amxbans-${{ steps.version.outputs.version }}.zip" > "amxbans-${{ steps.version.outputs.version }}.zip.sha256"
+
+      - name: Release notes from CHANGELOG.md
+        run: |
+          v="${{ steps.version.outputs.version }}"
+          awk -v v="$v" '
+            /^## / { if (found) exit; if (index($0, "## " v " ") == 1 || $0 == "## " v) { found = 1; next } }
+            found { print }
+          ' CHANGELOG.md > dist/notes.md
+          if [ ! -s dist/notes.md ]; then echo "See CHANGELOG.md." > dist/notes.md; fi
+          {
+            echo
+            echo "## Installation"
+            echo "Download \`amxbans-$v.zip\`, upload the contents of the \`amxbans/\` folder to your server and open \`setup.php\`."
+            echo "Upgrading: keep \`include/db.config.inc.php\` and \`include/files/\` - see README.md."
+          } >> dist/notes.md
+          cat dist/notes.md
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="${{ steps.version.outputs.version }}"
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/amxbans-$v.zip" "dist/amxbans-$v.zip.sha256" \
+            --title "AMXBans $v" \
+            --notes-file dist/notes.md \
+            --verify-tag

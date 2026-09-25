@@ -27,6 +27,11 @@ The database schema is unchanged, so the AMXBans game plugin keeps working with 
 
 If you do not have the old config file any more, run `setup.php` with the same table prefix – existing tables are detected and kept.
 
+## Deployment
+
+GitHub Actions run the tests on every pull request and deploy `main` to production over SSH (rsync) when the `DEPLOY_*` secrets are set.
+Pushing a `v*` tag publishes a release with a ready-to-upload ZIP. See [docs/deployment.md](docs/deployment.md).
+
 ## Web server configuration
 
 The application must only serve the PHP entry points in the root directory and `assets/`, `images/`.

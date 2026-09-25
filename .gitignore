@@ -36,3 +36,4 @@ vendor/smarty/smarty/.git*
 .DS_Store
 build/api/
 build/.phpdoc-cache/
+dist/

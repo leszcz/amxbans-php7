@@ -2,6 +2,10 @@
 
 ## 7.0.0 – 2026/09/25
 
+### Deployment
+* GitHub Actions: CI (PHP 8.1–8.4 lint, PHPStan, CSS check, functional tests on MariaDB) and deployment to production via rsync over SSH on every push to `main` (secrets `DEPLOY_*`, see `docs/deployment.md`).
+* Release workflow: pushing a `v*` tag publishes a GitHub release with a ready-to-upload ZIP package (`build/package.sh`).
+
 ### Documentation
 * PHPDoc blocks for every PHP file, class, method and function (types incl. `list<…>` / `array{…}`), JSDoc for Alpine components, variable lists in all templates.
 * Developer documentation in `docs/` (architecture, adding pages, security rules, database, templates, frontend, translations, testing) and `CONTRIBUTING.md`.
