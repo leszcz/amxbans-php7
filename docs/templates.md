@@ -6,7 +6,7 @@ Design wybiera się w *Web → Ustawienia* (`_webconfig.design`). Katalog `templ
 
 * `modern` – komplet szablonów, jasny/ciemny motyw.
 * `classic` – wygląd starego AMXBans GM: nadpisuje tylko `layout.tpl` i `admin/layout.tpl`, a kolory zmienia klasa `.theme-classic` w `assets/src/app.css` (patrz [frontend.md](frontend.md)).
-* `default` – stare szablony AMXBans 6, niekompatybilne ze Smarty 5 (do usunięcia).
+* Stare szablony AMXBans 6 (`default`) zostały usunięte – były niekompatybilne ze Smarty 5. Instalacje z ustawionym designem `default` automatycznie używają `modern`.
 
 Nowy design: skopiuj `templates/classic/`, zmień layout, dodaj klasę `.theme-<nazwa>` z własnymi zmiennymi kolorów i przebuduj CSS.
 

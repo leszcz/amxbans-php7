@@ -8,6 +8,9 @@
 * `phpdoc.dist.xml` (phpDocumentor) and `phpstan.neon.dist` (PHPStan level 6, no errors).
 * `tests/seed.php` (test data) and `tests/functional_test.py` (47 HTTP/security checks).
 
+### Removed
+* Old AMXBans 6 templates (`templates/default/`), the bundled Smarty 3 library (`include/smarty/`) and the SteamProfile widget with its XML proxy (`include/steamprofile/`).
+
 ### Designs
 * New `classic` design recreating the old AMXBans GM look; designs can override only some templates (fallback to `modern`).
 

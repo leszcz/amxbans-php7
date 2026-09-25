@@ -15,8 +15,6 @@
                 <path>*.php</path>
             </source>
             <ignore hidden="true" symlinks="true">
-                <path>include/smarty/**/*</path>
-                <path>include/steamprofile/**/*</path>
                 <path>include/geoip.inc</path>
                 <path>include/rcon_hl_net.inc.php</path>
                 <path>include/icons.php</path>
