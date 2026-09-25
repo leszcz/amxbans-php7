@@ -75,7 +75,7 @@ if ($sitenr == 2) {
         "version_php" => phpversion(),
         "version_amxbans_web" => $config->v_web,
         "server_software" => $_SERVER["SERVER_SOFTWARE"],
-        "mysql_version" => mysqli_get_client_info(),
+        "mysql_version" => extension_loaded('pdo_mysql') ? (phpversion('mysqlnd') ?: 'pdo_mysql ' . phpversion('pdo_mysql')) : "_NO",
         "bcmath" => extension_loaded('bcmath') ? "_YES" : "_NO",
         "gmp" => extension_loaded('gmp') ? "_YES" : "_NO"
     );

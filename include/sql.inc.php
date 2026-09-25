@@ -748,19 +748,24 @@ function sql_get_files(int $bid, int &$count): array {
   return $files;
 }
 
-function sql_get_search_amxadmins(&$amxadmins,&$nickadmins) {
+function sql_get_search_amxadmins(&$amxadmins, &$nickadmins): void {
   global $config;
-  $sqlcon = mysqli_connect($config->db_host,$config->db_user,$config->db_pass, $config->db_db);
-  $query = mysqli_query($sqlcon, "SELECT `admin_id`,`admin_nick` FROM `".$config->db_prefix."_bans` GROUP BY `admin_nick` ORDER BY `admin_nick`") or die (mysqli_error());
-  //Array aufbereiten
-  while($result = mysqli_fetch_object($query)) {
-    if($result->admin_id <> "")  $nickadmins[]=array("steam"=>$result->admin_id,"nick"=>html_safe($result->admin_nick));
+  $pdo = getPDO();
+
+  $stmt = $pdo->query("SELECT `admin_id`, `admin_nick` FROM `{$config->db_prefix}_bans` GROUP BY `admin_nick` ORDER BY `admin_nick`");
+  while ($result = $stmt->fetch(PDO::FETCH_OBJ)) {
+      if ($result->admin_id <> "") {
+          $nickadmins[] = ["steam" => $result->admin_id, "nick" => html_safe($result->admin_nick)];
+      }
   }
 
-  $query = mysqli_query($sqlcon, "SELECT ba.admin_id,ba.admin_nick,aa.nickname,aa.steamid FROM ".$config->db_prefix."_bans as ba,".$config->db_prefix."_amxadmins as aa WHERE ba.admin_id=aa.steamid GROUP BY `admin_id`") or die (mysqli_error($mysql));
-  //Array aufbereiten
-  while($result = mysqli_fetch_object($query)) {
-    if($result->admin_id <> "")  $amxadmins[]=array("steam"=>$result->admin_id,"nick"=>html_safe($result->nickname));
+  $stmt = $pdo->query("SELECT ba.admin_id, ba.admin_nick, aa.nickname, aa.steamid
+                       FROM `{$config->db_prefix}_bans` AS ba, `{$config->db_prefix}_amxadmins` AS aa
+                       WHERE ba.admin_id = aa.steamid GROUP BY `admin_id`");
+  while ($result = $stmt->fetch(PDO::FETCH_OBJ)) {
+      if ($result->admin_id <> "") {
+          $amxadmins[] = ["steam" => $result->admin_id, "nick" => html_safe($result->nickname)];
+      }
   }
 }
 
