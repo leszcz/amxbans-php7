@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import "tailwindcss" source(none);
 
 /* Template sources Tailwind scans for class names */
 @source "../../templates";
