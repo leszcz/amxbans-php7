@@ -60,7 +60,7 @@ php phpstan.phar analyse
 
 ```bash
 # składnia wszystkich plików projektu
-git ls-files '*.php' | grep -v '^vendor/\|^language/\|steamprofile\|templates/default' | xargs -n1 php -l | grep -v 'No syntax'
+git ls-files '*.php' | grep -v '^vendor/\|^language/' | xargs -n1 php -l | grep -v 'No syntax'
 
 # CSS po zmianach w szablonach
 npm run build:css

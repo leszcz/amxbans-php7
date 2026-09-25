@@ -23,7 +23,7 @@ The database schema is unchanged, so the AMXBans game plugin keeps working with 
 1. Back up your database and files.
 2. Replace the files with this version, but keep `include/db.config.inc.php` and `include/files/`.
 3. Open the site – no database migration is required. Existing web admin passwords (MD5) are upgraded to bcrypt on the next login.
-4. In *Admin area → Settings* choose the design `modern` (the old `default` templates are not compatible with Smarty 5).
+4. The old `default` templates were removed (not compatible with Smarty 5); installations that still have `default` selected automatically use `modern`. You can switch to `classic` (the old look) in *Admin area → Settings*.
 
 If you do not have the old config file any more, run `setup.php` with the same table prefix – existing tables are detected and kept.
 
