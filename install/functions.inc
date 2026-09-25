@@ -91,11 +91,21 @@ function sql_get_privilege($pdo) {
     return array_unique($privileges);
 }
 
+/** Points the shared Database class at the credentials entered in the installer. */
+function install_db_connect(): PDO {
+    Database::configure((object)[
+        "db_host"   => $_SESSION["dbhost"],
+        "db_user"   => $_SESSION["dbuser"],
+        "db_pass"   => $_SESSION["dbpass"],
+        "db_db"     => $_SESSION["dbdb"],
+        "db_prefix" => $_SESSION["dbprefix"],
+    ]);
+    return Database::pdo();
+}
+
 function sql_connect() {
     try {
-        $pdo = new PDO("mysql:host=" . $_SESSION["dbhost"] . ";dbname=" . $_SESSION["dbdb"], $_SESSION["dbuser"], $_SESSION["dbpass"]);
-        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        return $pdo;
+        return install_db_connect();
     } catch (PDOException $e) {
         return false;
     }

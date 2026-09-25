@@ -1,5 +1,32 @@
 # Changelog for AmxBans GM working in PHP 8
 
+## 7.0.0 – 2026/09/25
+
+### Documentation
+* PHPDoc blocks for every PHP file, class, method and function (types incl. `list<…>` / `array{…}`), JSDoc for Alpine components, variable lists in all templates.
+* Developer documentation in `docs/` (architecture, adding pages, security rules, database, templates, frontend, translations, testing) and `CONTRIBUTING.md`.
+* `phpdoc.dist.xml` (phpDocumentor) and `phpstan.neon.dist` (PHPStan level 6, no errors).
+* `tests/seed.php` (test data) and `tests/functional_test.py` (47 HTTP/security checks).
+
+### Designs
+* New `classic` design recreating the old AMXBans GM look; designs can override only some templates (fallback to `modern`).
+
+### Security
+* One `Database` class for every connection; all queries use prepared statements (no more `sql_safe()` string building).
+* Fixed a login bypass in the remember-me code (any cookie with 16+ characters logged the visitor in).
+* CSRF protection for every form, hardened sessions, security headers and a strict Content-Security-Policy.
+* Smarty 3.1.30 (known CVEs) replaced by Smarty 5 with automatic output escaping; stored XSS in comments/BBCode fixed.
+* Uploads and imports can no longer place `.php` files in web-accessible directories.
+* RCON command injection via ban reasons fixed; RCON passwords are no longer sent to the browser.
+* Removed the version check that connected to a third-party database with hard-coded credentials.
+* Correct permission checks on all admin pages; web admin passwords are no longer sent by e-mail.
+* Installer writes the configuration safely and locks itself after installation.
+
+### Interface
+* New responsive `modern` design (Tailwind CSS 4, Alpine.js) with dark mode.
+* Live server status loaded asynchronously, expandable ban rows, modals for editing, AMX Mod X flag picker.
+* Polish translations for all new texts.
+
 ## 2024/10/04
 
 * Change array() to [];

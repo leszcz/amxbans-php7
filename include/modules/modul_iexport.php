@@ -1,267 +1,147 @@
 <?php
+declare(strict_types=1);
 
-/*
+/**
+ * Module "Import/Export" (admin.php?modul=iexport, permission bans_export or bans_import).
+ *
+ * - GET download=<file>   download a stored backup (bans_export)
+ * - POST backup           SQL dump of the AMXBans tables, downloaded or stored in include/backup/
+ * - POST delete_backup    delete a stored backup
+ * - POST export_cfg       banned.cfg / listip.cfg lines for the game server
+ * - POST import_cfg       import banid/addip lines from an uploaded file (bans_import)
+ * - POST delete_imported  delete bans with imported = 1
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
 
-    AMXBans v6.0
-
-    Copyright 2009, 2010 by SeToY & |PJ|ShOrTy
-
-    This file is part of AMXBans.
-
-    AMXBans is free software, but it's licensed under the
-    Creative Commons - Attribution-NonCommercial-ShareAlike 2.0
-
-    AMXBans is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-
-    You should have received a copy of the cc-nC-SA along with AMXBans.
-    If not, see <http://creativecommons.org/licenses/by-nc-sa/2.0/>.
-
-*/
-
-session_start();
-
-if (!$_SESSION["loggedin"]) {
-    header("Location: index.php");
-    exit;
+if (!Auth::can('bans_export') && !Auth::can('bans_import')) {
+    abort(403);
 }
-if (!has_access("bans_export") && !has_access("bans_import")) {
-    header("Location: index.php");
-    exit;
+require_once __DIR__ . '/iexport_func/modul_iexport_dbbackup.php';
+
+$backupDir = AMXB_ROOT . '/include/backup/';
+$backupFile = function (string $name) use ($backupDir): ?string {
+    return preg_match('/^[\w-]+\.sql$/', $name) && is_file($backupDir . $name) ? $backupDir . $name : null;
+};
+
+// Downloads (GET)
+if (($file = query('download')) !== '') {
+    Auth::require('bans_export');
+    $path = $backupFile($file) ?? abort(404);
+    send_download($path, $file, 'application/sql');
 }
 
-require_once("iexport_func/modul_iexport_dbbackup.php");
-
-ob_start();
-
-$modul_site = "iexport";
-$title2 = "_TITLEIEXPORT";
-
-// Download backup
-if (isset($_POST["dbdownfile"])) {
-    if (!has_access("bans_export") && !has_access("bans_import")) {
-        header("Location: index.php");
-        exit;
-    }
-    
-    $file = basename($_POST["localfile"]);
-    $filepath = "include/backup/" . $file;
-    
-    if (!file_exists($filepath)) {
-        $user_msg = "_FILENOTAVAILABLE";
-    } else {
-        if (ini_get('zlib.output_compression')) {
-            ini_set('zlib.output_compression', 'Off');
+switch (action()) {
+    case 'backup':
+        Auth::require('bans_export');
+        $sql = db_backup(input_bool('structure_only'), input_bool('drop_table'), input('scope') === 'bans');
+        $name = date('Y-m-d_H-i-s') . (input('scope') === 'bans' ? '_bans' : '') . '_' . bin2hex(random_bytes(4)) . '.sql';
+        if (input_bool('download')) {
+            log_to_db('Backup', 'Downloaded backup');
+            while (ob_get_level()) {
+                ob_end_clean();
+            }
+            header('Content-Type: application/sql; charset=UTF-8');
+            header('Content-Disposition: attachment; filename="' . $name . '"');
+            header('Cache-Control: private, no-store');
+            exit($sql);
         }
-        header("Content-Type: application/download");
-        header('Content-Disposition: attachment; filename="' . basename($file) . '"');
-        readfile($filepath);
-        unset($_POST["dbdownfile"]);
-    }
-}
-
-// Delete backup
-if (isset($_POST["delfile"])) {
-    if (!has_access("bans_export") && !has_access("bans_import")) {
-        header("Location: index.php");
-        exit;
-    }
-
-    $file = basename($_POST["localfile"]);
-    $filepath = "include/backup/" . $file;
-
-    if (file_exists($filepath) && is_file($filepath)) {
-        if (unlink($filepath)) {
-            $user_msg = "_FILEDELSUCCESS";
+        if (@file_put_contents($backupDir . $name, $sql) === false) {
+            flash('error', '_BACKUPFAILNOFILE');
         } else {
-            $user_msg = "_FILEDELFAILED";
+            log_to_db('Backup', "Created backup $name");
+            flash('success', '_BACKUPSUCCESS');
         }
-    } else {
-        $user_msg = "_FILENOTFOUND";
-    }
-}
+        redirect_back();
 
-// Create .sql backup
-if (isset($_POST["dbexp"])) {
-    if (!has_access("bans_export") && !has_access("bans_import")) {
-        header("Location: index.php");
-        exit;
-    }
-
-    $type = isset($_POST["structur"]);
-    $droptable = isset($_POST["droptable"]);
-    $deleteall = isset($_POST["deleteall"]);
-    $download = isset($_POST["download"]);
-
-    $user_msg = db_backup($type, $droptable, $deleteall, $download, false);
-}
-
-// Create bans .sql backup
-if (isset($_POST["dbbansexp"])) {
-    if (!has_access("bans_export") && !has_access("bans_import")) {
-        header("Location: index.php");
-        exit;
-    }
-
-    $download = isset($_POST["download"]);
-    $user_msg = db_backup(false, true, false, $download, true);
-}
-
-// Import banned.cfg
-if (isset($_POST["bancfgupl"])) {
-    if (!has_access("bans_export") && !has_access("bans_import")) {
-        header("Location: index.php");
-        exit;
-    }
-
-    $pdo = getPDO();
-    $reason = $_POST["reason"];
-    $plnick = $_POST["player_nick"];
-    $server = $_POST["server_name"];
-    $date = explode("-", trim($_POST["ban_created"]));
-
-    if (empty($reason) || empty($plnick) || empty($server) || empty($date) || count($date) != 3) {
-        $user_msg = "_NOREQUIREDFIELDS";
-    } else {
-        $date = strtotime($date[2] . $date[1] . $date[0]);
-        $file = $_FILES['filename']['name'];
-        $types = ["cfg", "txt"];
-
-        if (empty($file)) {
-            $user_msg = "_FILENOFILE";
+    case 'delete_backup':
+        Auth::require('bans_export');
+        $path = $backupFile(input('file'));
+        if ($path && @unlink($path)) {
+            flash('success', '_FILEDELSUCCESS');
         } else {
-            $file_type = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-            if (!in_array($file_type, $types)) {
-                $user_msg = "_FILETYPENOTALLOWED";
+            flash('error', '_FILEDELFAILED');
+        }
+        redirect_back();
+
+    case 'export_cfg':
+        Auth::require('bans_export');
+        $where = input_bool('only_permanent') ? ' WHERE `expired` = 0 AND `ban_length` = 0' : ' WHERE `expired` = 0';
+        $lines = [];
+        foreach (Database::all('SELECT `player_id`, `player_ip`, `ban_type`, `ban_reason` FROM ' . Database::table('bans') . $where) as $b) {
+            $comment = input_bool('with_reason') ? ' // ' . preg_replace('/[\r\n]/', ' ', (string)$b['ban_reason']) : '';
+            if ($b['ban_type'] === 'SI' && valid_ip((string)$b['player_ip'])) {
+                $lines[] = 'addip 0.0 ' . $b['player_ip'] . $comment;
+            } elseif (valid_steamid((string)$b['player_id'])) {
+                $lines[] = 'banid 0.0 ' . $b['player_id'] . $comment;
             }
         }
-
-        if ($_FILES['filename']['size'] >= ($config->max_file_size * 1024 * 1024)) {
-            $user_msg = "_FILETOBIG";
+        log_to_db('Export', count($lines) . ' bans exported to banned.cfg');
+        while (ob_get_level()) {
+            ob_end_clean();
         }
+        header('Content-Type: text/plain; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="banned.cfg"');
+        exit(implode("\n", $lines) . "\n");
 
-        if (empty($user_msg)) {
-            $temp_file = "temp/" . $file;
-            if (!move_uploaded_file($_FILES['filename']['tmp_name'], $temp_file)) {
-                $user_msg = "_FILEUPLOADFAIL";
-            } else {
-                $handle = fopen($temp_file, "r");
-                $status["imported"] = 0;
-                $status["failed"] = 0;
-
-                while (!feof($handle)) {
-                    $n = fgets($handle, 128);
-                    $bans = explode(" ", $n);
-                    $time = (int)trim($bans[1]);
-                    $reason_real = !empty($bans[4]) ? implode(" ", array_slice($bans, 4)) : $reason;
-
-                    if (trim($bans[0]) == "" || trim($bans[0]) == "//" || $time != 0) {
-                        $status["failed"]++;
-                        continue;
-                    }
-
-                    if (trim($bans[0]) == "banid") {
-                        $steamid = trim($bans[2]);
-                        if (!preg_match("/^STEAM_0:(0|1):[0-9]{1,18}$/", $steamid)) {
-                            $status["failed"]++;
-                            continue;
-                        }
-
-                        // Check if ban exists
-                        $stmt = $pdo->prepare("SELECT `player_id` FROM `{$config->db_prefix}_bans` WHERE `player_id` = ? AND `expired` = 0");
-                        $stmt->execute([$steamid]);
-                        if ($stmt->rowCount()) {
-                            $status["failed"]++;
-                            continue;
-                        }
-
-                        // Insert ban
-                        $stmt = $pdo->prepare("INSERT INTO `{$config->db_prefix}_bans` (`player_id`, `player_nick`, `admin_nick`, `ban_type`, `ban_reason`, `ban_created`, `ban_length`, `server_name`, `imported`) 
-                            VALUES (?, ?, ?, 'S', ?, ?, ?, ?, 1)");
-                        $stmt->execute([$steamid, $plnick, $_SESSION["uname"], $reason_real, $date, $time, $server]);
-                        $status["imported"]++;
-                    } elseif (trim($bans[0]) == "banip") {
-                        // Similar logic for IP bans
-                    }
-                }
-
-                fclose($handle);
-                unlink($temp_file);
-                $smarty->assign("status", $status);
+    case 'import_cfg':
+        Auth::require('bans_import');
+        $upload = $_FILES['file'] ?? null;
+        $reason = mb_substr(input('reason'), 0, 100);
+        $nick = mb_substr(input('player_nick'), 0, 100) ?: 'Unknown';
+        $serverName = mb_substr(input('server_name'), 0, 100) ?: 'Import';
+        $created = strtotime(input('ban_created')) ?: time();
+        if ($reason === '' || !is_array($upload) || ($upload['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file((string)$upload['tmp_name'])) {
+            flash('error', '_NOREQUIREDFIELDS');
+            redirect_back();
+        }
+        if ((int)$upload['size'] > 5 * 1024 * 1024) {
+            flash('error', '_FILETOBIG');
+            redirect_back();
+        }
+        $imported = $skipped = 0;
+        foreach (file((string)$upload['tmp_name'], FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+            [$cmd, $time, $id] = array_pad(preg_split('/\s+/', trim($line), 4), 3, '');
+            $lineReason = str_contains($line, '//') ? trim(substr($line, strpos($line, '//') + 2)) : '';
+            $isSteam = $cmd === 'banid' && valid_steamid($id);
+            $isIp = $cmd === 'addip' && valid_ip($id);
+            if ((!$isSteam && !$isIp) || (float)$time !== 0.0) {
+                $skipped++;
+                continue;
             }
+            $col = $isSteam ? 'player_id' : 'player_ip';
+            if (Database::value('SELECT 1 FROM ' . Database::table('bans') . " WHERE `$col` = :id AND `expired` = 0 LIMIT 1", ['id' => $id])) {
+                $skipped++;
+                continue;
+            }
+            Database::insert('bans', [
+                'player_id' => $isSteam ? $id : '', 'player_ip' => $isIp ? $id : '', 'player_nick' => $nick,
+                'admin_nick' => Auth::name(), 'admin_id' => Auth::name(), 'ban_type' => $isSteam ? 'S' : 'SI',
+                'ban_reason' => mb_substr($lineReason ?: $reason, 0, 100), 'cs_ban_reason' => mb_substr($lineReason ?: $reason, 0, 100),
+                'ban_created' => $created, 'ban_length' => 0, 'server_name' => $serverName, 'imported' => 1,
+            ]);
+            $imported++;
         }
-    }
+        log_to_db('Import', "banned.cfg: $imported imported, $skipped skipped");
+        flash('success', '_IMPORTSUCCESS', [sprintf(__('_IMPORT_RESULT'), $imported, $skipped)]);
+        redirect_back();
+
+    case 'delete_imported':
+        Auth::require('bans_import');
+        $n = Database::run('DELETE FROM ' . Database::table('bans') . ' WHERE `imported` = 1')->rowCount();
+        log_to_db('Import', "Deleted $n imported bans");
+        flash('success', '_BANDELETED', [(string)$n]);
+        redirect_back();
 }
 
-// Export banned.cfg
-if (isset($_POST["bancfgexp"])) {
-    if (!has_access("bans_export") && !has_access("bans_import")) {
-        header("Location: index.php");
-        exit;
-    }
-
-    $onlyperm = isset($_POST["onlyperm"]);
-    $increason = isset($_POST["increason"]);
-    $download = isset($_POST["download"]);
-
-    $file = "temp/banned.cfg";
-    if (file_exists($file)) {
-        unlink($file);
-    }
-
-    $status["exported"] = 0;
-
-    if ($handle = fopen($file, "w")) {
-        $pdo = getPDO();
-        $stmt = $pdo->query("SELECT `player_id`, `ban_length`, `ban_reason` FROM `{$config->db_prefix}_bans`" . ($onlyperm ? " WHERE `expired` = 0" : ""));
-        
-        while ($result = $stmt->fetch()) {
-            $line = "banid " . $result['ban_length'] . ".0 " . trim($result['player_id']) . ($increason ? " // " . trim($result['ban_reason']) : "") . "\n";
-            fputs($handle, $line);
-            $status["exported"]++;
-        }
-
-        fclose($handle);
-        $user_msg = "_EXPORTSUCCESS";
-        $smarty->assign("statusexport", $status);
-
-        if ($download) {
-            if (ini_get('zlib.output_compression')) {
-                ini_set('zlib.output_compression', 'Off');
-            }
-            header("Content-Type: application/download");
-            header('Content-Disposition: attachment; filename="' . basename($file) . '"');
-            readfile($file);
-            unset($_POST["download"]);
-        }
-    } else {
-        $user_msg = "_EXPORTFAILED";
-    }
-}
-
-// Search backups
 $backups = [];
-$count = 0;
-$d = opendir($config->path_root . "/include/backup/");
-while ($f = readdir($d)) {
-    if ($f != "." && $f != ".." && !is_dir($config->path_root . "/backup/" . $f) && substr($f, -3) == "sql") {
-        $backups[] = $f;
-        $count++;
-    }
+foreach (glob($backupDir . '*.sql') ?: [] as $path) {
+    $backups[] = ['name' => basename($path), 'size' => filesize($path), 'time' => filemtime($path)];
 }
-closedir($d);
+usort($backups, fn($a, $b) => $b['time'] <=> $a['time']);
 
-if (!empty($backups)) {
-    rsort($backups);
-}
-$smarty->assign("backups", $backups);
-$smarty->assign("count", $count);
-
-// Find imported bans
-$pdo = getPDO();
-$stmt = $pdo->query("SELECT `bid` FROM `{$config->db_prefix}_bans` WHERE `imported` = 1");
-$smarty->assign("importcount", $stmt->rowCount());
-
-ob_end_flush();
-?>
+$view->page('modules/iexport.tpl', [
+    'backups'  => $backups,
+    'imported' => (int)Database::value('SELECT COUNT(*) FROM ' . Database::table('bans') . ' WHERE `imported` = 1'),
+    'writable' => is_writable($backupDir),
+], '_TITLEIEXPORT');

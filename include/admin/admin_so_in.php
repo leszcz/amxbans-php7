@@ -1,173 +1,105 @@
 <?php
-session_start();
-if (!$_SESSION["loggedin"]) {
-    header("Location:index.php");
-    exit;
+declare(strict_types=1);
+
+/**
+ * Admin dashboard (admin.php, admin.php?site=so_in): statistics, system info, maintenance.
+ *
+ * POST actions (permission prune_db): optimize, prune, clear_cache, repair_files, repair_comments.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
+
+$maintenance = ['optimize', 'prune', 'clear_cache', 'repair_files', 'repair_comments'];
+if (in_array(action(), $maintenance, true)) {
+    Auth::require('prune_db');
+    switch (action()) {
+        case 'optimize':
+            $tables = Database::column('SHOW TABLES LIKE ' . Database::pdo()->quote(addcslashes(Database::prefix(), '_%') . '\_%'));
+            if ($tables) {
+                Database::pdo()->query('OPTIMIZE TABLE ' . implode(', ', array_map(fn($t) => '`' . str_replace('`', '', $t) . '`', $tables)))->fetchAll();
+            }
+            log_to_db('Database', 'Optimized tables');
+            flash('success', '_DBOPTIMIZED');
+            break;
+        case 'prune':
+            $count = bans_prune();
+            log_to_db('Database', "Pruned $count expired bans");
+            flash('success', '_DBPRUNED', [$count . ' ' . __('_BANS')]);
+            break;
+        case 'clear_cache':
+            $view->clearCompiledTemplate();
+            flash('success', '_CACHEDELETED');
+            break;
+        case 'repair_files':
+            flash('success', '_REPAIRED', [(string)repair_files(true)]);
+            break;
+        case 'repair_comments':
+            $n = Database::run('DELETE c FROM ' . Database::table('comments') . ' c LEFT JOIN ' . Database::table('bans') . ' b ON b.`bid` = c.`bid` WHERE b.`bid` IS NULL')->rowCount();
+            flash('success', '_REPAIRED', [(string)$n]);
+            break;
+    }
+    redirect_back();
 }
 
-$admin_site = "in";
-$title2 = "_TITLEINFO";
-
-$pdo = getPDO();
-
-// optimize database tables
-if (isset($_POST["optimize"])) {
-    if (!has_access("prune_db")) {
-        header("Location:index.php");
-        exit;
-    }
-
-    $query = $pdo->prepare("SHOW TABLES FROM `" . $config->db_db . "` LIKE :prefix");
-    $query->execute([':prefix' => $config->db_prefix . "_%"]);
-    $tables = [];
-    while ($result = $query->fetch(PDO::FETCH_NUM)) {
-        $tables[] = "`" . $result[0] . "`";
-    }
-
-    if ($tables) {
-        $optimizeQuery = $pdo->prepare("OPTIMIZE TABLE " . implode(',', $tables));
-        $optimizeQuery->execute();
-        $user_msg = "_DBOPTIMIZED";
-    }
-}
-
-// truncate old bans
-$prunecount = -1;
-if (isset($_POST["prunedb"])) {
-    if (!has_access("prune_db")) {
-        header("Location:index.php");
-        exit;
-    }
-
-    $query = $pdo->query(
-        "SELECT ba.bid, ba.ban_created, ba.ban_length, se.timezone_fixx 
-         FROM {$config->db_prefix}_bans AS ba 
-         LEFT JOIN {$config->db_prefix}_serverinfo AS se ON ba.server_ip = se.address 
-         WHERE ba.expired = 0"
-    );
-
-    $prunecount = 0;
-    while ($result = $query->fetch(PDO::FETCH_OBJ)) {
-        if (($result->ban_created + ($result->timezone_fixx * 60 * 60) + ($result->ban_length * 60)) < time() && $result->ban_length != "0") {
-            $prunecount++;
-            $pruneQuery = $pdo->prepare(
-                "UPDATE {$config->db_prefix}_bans SET expired = 1 WHERE bid = :bid"
-            );
-            $pruneQuery->execute([':bid' => $result->bid]);
-
-            $pruneInsert = $pdo->prepare(
-                "INSERT INTO {$config->db_prefix}_bans_edit 
-                (bid, edit_time, admin_nick, edit_reason) 
-                VALUES (:bid, :edit_time, 'amxbans', 'Bantime expired')"
-            );
-            $pruneInsert->execute([
-                ':bid' => $result->bid,
-                ':edit_time' => ($result->ban_created + ($result->timezone_fixx * 60 * 60) + ($result->ban_length * 60))
-            ]);
+/**
+ * Finds (and optionally removes) orphaned uploads.
+ *
+ * Counts file rows whose ban no longer exists and stored files without a database row.
+ *
+ * @param bool $repair Delete them.
+ * @return int Number of orphaned entries (or removed entries when $repair is true).
+ */
+function repair_files(bool $repair): int
+{
+    $orphans = Database::all('SELECT f.`id`, f.`demo_file` FROM ' . Database::table('files') . ' f LEFT JOIN ' . Database::table('bans') . ' b ON b.`bid` = f.`bid` WHERE b.`bid` IS NULL');
+    $known = array_flip(Database::column('SELECT `demo_file` FROM ' . Database::table('files')));
+    $stray = [];
+    foreach (glob(files_dir() . '*') ?: [] as $path) {
+        $name = preg_replace('/_thumb$/', '', basename($path));
+        if (preg_match('/^[a-f0-9]{32}_\d+$/', $name) && !isset($known[$name])) {
+            $stray[$name] = true;
         }
     }
-
-    $smarty->assign("prunecount", $prunecount);
-    $user_msg = "_DBPRUNED";
-}
-
-// convert size to bytes
-function return_bytes($val) {
-    $val = trim($val);
-    $last = strtolower($val[strlen($val) - 1]);
-    $num = floatval($val);  // Extract the numeric part
-
-    switch ($last) {
-        case 'g':
-            $num *= 1024;
-        case 'm':
-            $num *= 1024;
-        case 'k':
-            $num *= 1024;
+    if ($repair) {
+        foreach ($orphans as $o) {
+            delete_stored_file((string)$o['demo_file']);
+            Database::delete('files', ['id' => (int)$o['id']]);
+        }
+        foreach (array_keys($stray) as $name) {
+            delete_stored_file($name);
+        }
     }
-    return $num;
+    return count($orphans) + count($stray);
 }
 
-$gd = gd_info();
-$gd_version = $gd["GD Version"];
-$php_settings = [
-    "display_errors" => ini_get('display_errors') ?: "off",
-    "register_globals" => ini_get('register_globals') == 1 ? "_ON" : "_OFF",
-    "magic_quotes_gpc" => ( function_exists('get_magic_quotes_gpc') ? "_ON" : "_OFF"),
-    "safe_mode" => ini_get('safe_mode') == 1 ? "_ON" : "_OFF",
-    "post_max_size" => ini_get('post_max_size') . " (" . return_bytes(ini_get('post_max_size')) . " bytes)",
-    "upload_max_filesize" => ini_get('upload_max_filesize') . " (" . return_bytes(ini_get('upload_max_filesize')) . " bytes)",
-    "max_execution_time" => ini_get('max_execution_time'),
-    "version_php" => phpversion(),
-    "mysql_version" => $pdo->getAttribute(PDO::ATTR_CLIENT_VERSION),
-    "bcmath" => extension_loaded('bcmath') ? "_YES" : "_NO",
-    "gmp" => extension_loaded('gmp') ? "_YES" : "_NO",
-    "gd" => extension_loaded('gd') ? "_YES" : "_NO",
-    "version_gd" => $gd_version
-];
-$smarty->assign("php_settings", $php_settings);
-
-// clear Smarty cache
-if (isset($_POST["clear"])) {
-    if (!has_access("prune_db")) {
-        header("Location: index.php");
-        exit;
-    }
-    $smarty->clearCompiledTemplate();
-    $user_msg = "_CACHEDELETED";
+$dbSize = 0;
+foreach (Database::all('SHOW TABLE STATUS LIKE ' . Database::pdo()->quote(addcslashes(Database::prefix(), '_%') . '\_%')) as $t) {
+    $dbSize += (int)$t['Data_length'] + (int)$t['Index_length'];
 }
 
-// repair files in database
-if (isset($_POST["file_repair"])) {
-    $repaired = sql_get_files_count_fail(1);
-}
-
-// repair comments in database
-if (isset($_POST["comment_repair"])) {
-    $repaired = sql_get_comments_count_fail(1);
-}
-
-// calc database size
-function db_size($name, $prefix) {
-    global $pdo;
-
-    // Properly escape the prefix for safety
-    $prefix = $pdo->quote($prefix . "_%");
-
-    // Build the query string dynamically with the escaped prefix
-    $query = "SHOW TABLE STATUS FROM `" . $name . "` LIKE " . $prefix;
-
-    // Execute the query
-    $stmt = $pdo->query($query);
-
-    $db_size = 0;
-    while ($result = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $db_size += $result["Data_length"] + $result["Index_length"];
-    }
-
-    return $db_size ? $db_size : "_NOTAVAILABLE";
-}
-
-// format size to correct units
-function format_size($size) {
-    if ($size == "_NOTAVAILABLE") {
-        return "NOTAVAILABLE";
-    }
-    if ($size >= 1073741824) {
-        return round(($size / 1073741824), 2) . "GB";
-    } elseif ($size >= 1048576) {
-        return round(($size / 1048576), 2) . "MB";
-    } elseif ($size >= 1024) {
-        return round(($size / 1024), 2) . " KB";
-    } else {
-        return $size . " Byte";
-    }
-}
-
-$smarty->assign("bans", ["count" => sql_get_bans_count(0), "activ" => sql_get_bans_count(1)]);
-$smarty->assign("db_size", format_size(db_size($config->db_db, $config->db_prefix)));
-$smarty->assign("auto_prune", $config->auto_prune);
-$smarty->assign("comment_count", ["count" => sql_get_comments_count(0), "fail" => sql_get_comments_count_fail(0)]);
-$smarty->assign("file_count", ["count" => sql_get_files_count(0), "fail" => sql_get_files_count_fail(0)]);
-$smarty->assign("msg", $user_msg);
-?>
+$bans = Database::table('bans');
+$view->page('admin/dashboard.tpl', [
+    'stats' => [
+        'bans'        => (int)Database::value("SELECT COUNT(*) FROM $bans"),
+        'active'      => (int)Database::value("SELECT COUNT(*) FROM $bans WHERE `expired` = 0"),
+        'today'       => (int)Database::value("SELECT COUNT(*) FROM $bans WHERE `ban_created` >= :t", ['t' => strtotime('today')]),
+        'week'        => (int)Database::value("SELECT COUNT(*) FROM $bans WHERE `ban_created` >= :t", ['t' => time() - 7 * 86400]),
+        'comments'    => (int)Database::value('SELECT COUNT(*) FROM ' . Database::table('comments')),
+        'files'       => (int)Database::value('SELECT COUNT(*) FROM ' . Database::table('files')),
+        'comment_orphans' => (int)Database::value('SELECT COUNT(*) FROM ' . Database::table('comments') . " c LEFT JOIN $bans b ON b.`bid` = c.`bid` WHERE b.`bid` IS NULL"),
+        'file_orphans'=> repair_files(false),
+        'db_size'     => $dbSize,
+    ],
+    'recent' => array_map('ban_present', Database::all(ban_select_sql() . ' ORDER BY ba.`ban_created` DESC LIMIT 8')),
+    'system' => [
+        'PHP'          => PHP_VERSION,
+        'MySQL'        => (string)Database::pdo()->getAttribute(PDO::ATTR_SERVER_VERSION),
+        'Smarty'       => \Smarty\Smarty::SMARTY_VERSION,
+        'GD'           => extension_loaded('gd') ? (gd_info()['GD Version'] ?? 'yes') : '—',
+        'upload_max_filesize' => ini_get('upload_max_filesize'),
+        'post_max_size' => ini_get('post_max_size'),
+        'HTTPS'        => Security::isHttps() ? 'yes' : 'no',
+        'setup.php'    => is_file(AMXB_ROOT . '/setup.php') ? 'present' : 'removed',
+    ],
+    'auto_prune' => (bool)$config->auto_prune,
+], '_TITLEINFO');

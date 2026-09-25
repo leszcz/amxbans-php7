@@ -1,346 +1,298 @@
 <?php
-session_start();
+declare(strict_types=1);
 
-if (!isset($_POST["bid"]) || !is_numeric($_POST["bid"])) {
-    header("Location: index.php");
-    exit;
+/**
+ * Ban details page (ban_list.php?bid=<id>), included from ban_list.php after the bootstrap.
+ *
+ * GET download=<file id> [&thumb=1] streams an attached file.
+ * POST actions:
+ * - edit_ban        (bans_edit, "own" allowed; unban=1 needs bans_unban) - edit_reason is required
+ * - delete_ban      (bans_delete) - also deletes comments and files
+ * - add_comment     guests only when comment_all is enabled; captcha when use_capture
+ * - edit_comment / delete_comment (cid)
+ * - upload_file     guests only when demo_all is enabled; extension/size checks, random stored name
+ * - edit_file / delete_file (did)
+ *
+ * Template: ban_detail.tpl.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
+
+$bid = query_int('bid');
+$ban = ban_find($bid);
+if (!$ban) {
+    abort(404, '_BANNOTFOUND');
 }
+$self = 'ban_list.php?bid=' . $bid;
+$isGuest = !Auth::check();
+$canComment = $config->use_comment && ($config->comment_all || !$isGuest);
+$canUpload = $config->use_demo && ($config->demo_all || !$isGuest);
+$guestNeedsCaptcha = $isGuest && $config->use_capture;
 
-$title2 = "_TITLEBANDETAIL";
-$bid = (int)$_POST["bid"];
-$site = isset($_POST["site"]) && is_numeric($_POST["site"]) ? (int)$_POST["site"] : 1;
-
-// Create new captcha if needed
-if (!(isset($_POST["add_comment"]) || isset($_POST["add_demo"]))) {
-    new_captcha();
-}
-
-function new_captcha() {
-    $rand = substr(base64_encode(mt_rand(1000000, 9999999)), 0, 7);
-    $rand = strtr($rand, ['J' => 'Z', 'I' => 'Y', 'j' => 'z', 'i' => 'y', '0' => 'B', 'O' => 'C']);
-    $_SESSION["captcha_code"] = $rand;
-}
-
-// Ban edit
-if (isset($_POST["edit_ban"]) && isset($_POST["bid"])) {
-    if (!has_access("bans_edit")) {
-        $error = "_ACCESSINVALID";
-        header("Location: index.php");
+// ----------------------------------------------------------------------------
+// File download / thumbnail (GET)
+// ----------------------------------------------------------------------------
+if (($did = query_int('download')) > 0 && $config->use_demo) {
+    $file = Database::one('SELECT * FROM ' . Database::table('files') . ' WHERE `id` = :id AND `bid` = :bid', ['id' => $did, 'bid' => $bid]);
+    $path = $file ? stored_file_path((string)$file['demo_file'], query('thumb') === '1') : null;
+    if (!$path || !is_file($path)) {
+        abort(404, '_FILENOTAVAILABLE');
+    }
+    if (query('thumb') === '1') {
+        header('Content-Type: image/png');
+        header('Cache-Control: private, max-age=86400');
+        readfile($path);
         exit;
     }
+    Database::run('UPDATE ' . Database::table('files') . ' SET `down_count` = `down_count` + 1 WHERE `id` = :id', ['id' => $did]);
+    send_download($path, (string)$file['demo_real']);
+}
 
-    $pdo = getPDO();
-    $unban = isset($_POST["unban"]) && $_POST["unban"] === "on";
-    
-    if ($unban && !has_access("bans_unban")) {
-        $error = "_ACCESSINVALID";
-    }
-
-    $ban_length_old = (int)$_POST["ban_length_old"];
-    $player_nick = sql_safe($_POST["player_nick"]);
-    $player_id = sql_safe($_POST["player_id"]);
-    $player_ip = sql_safe($_POST["player_ip"]);
-    $ban_type = $_POST["ban_type"];
-    $ban_reason = sql_safe($_POST["ban_reason"]);
-    $ban_length = (int)$_POST["ban_length"];
-    $ban_created = (int)$_POST["ban_created"];
-    $edit_reason = sql_safe($_POST["edit_reason"]);
-
-    if ($unban) {
-        $ban_length = -1;
-    } else {
-        if (!validate_value($player_nick, "name", $msg, 1, 31, "NICKNAME")) $error[] = $msg;
-        if (!validate_value($player_id, "steamid", $msg) && $ban_type == "S") $error[] = $msg;
-        if (!validate_value($player_ip, "ip", $msg) && $ban_type == "SI") $error[] = $msg;
-    }
-
-    if ($unban) $edit_reason = "Unban: " . $edit_reason;
-
-    if (empty($error)) {
-        // Insert ban edit log
-        $stmt = $pdo->prepare("INSERT INTO `{$config->db_prefix}_bans_edit` (`bid`, `edit_time`, `admin_nick`, `edit_reason`) VALUES (?, UNIX_TIMESTAMP(), ?, ?)");
-        $stmt->execute([$bid, $_SESSION["uname"], $edit_reason]);
-
+// ----------------------------------------------------------------------------
+// Actions (POST)
+// ----------------------------------------------------------------------------
+switch (action()) {
+    case 'edit_ban':
+        if (!Auth::canOnBan('bans_edit', $ban)) {
+            abort(403);
+        }
+        $editReason = mb_substr(input('edit_reason'), 0, 255);
+        $unban = input_bool('unban');
+        $errors = [];
+        if ($editReason === '') {
+            $errors[] = '_NOEDITREASON';
+        }
         if ($unban) {
-            $ban_row = sql_get_ban_details($bid);
-            $player_nick = $ban_row["player_nick"];
-            $player_id = $ban_row["player_id"];
-
-            $edit_query = "UPDATE `{$config->db_prefix}_bans` SET `ban_length` = -1, `expired` = 1";
+            if (!Auth::canOnBan('bans_unban', $ban)) {
+                abort(403);
+            }
+            if (!$errors) {
+                Database::update('bans', ['ban_length' => -1, 'expired' => 1], ['bid' => $bid]);
+            }
         } else {
-            $edit_query = "UPDATE `{$config->db_prefix}_bans` SET 
-                `player_nick` = :player_nick,
-                `player_id` = :player_id,
-                `player_ip` = :player_ip,
-                `ban_type` = :ban_type,
-                `ban_reason` = :ban_reason,
-                `cs_ban_reason` = :ban_reason";
-
-            if ($ban_length_old !== $ban_length) {
-                $edit_query .= ", `ban_length` = :ban_length";
+            $data = [
+                'player_nick'   => mb_substr(input('player_nick'), 0, 100),
+                'player_id'     => input('player_id'),
+                'ban_type'      => input('ban_type') === 'SI' ? 'SI' : 'S',
+                'ban_reason'    => mb_substr(input('ban_reason'), 0, 100),
+                'cs_ban_reason' => mb_substr(input('ban_reason'), 0, 100),
+                'ban_length'    => max(0, input_int('ban_length', (int)$ban['ban_length'])),
+            ];
+            if (Auth::can('ip_view')) {
+                $data['player_ip'] = input('player_ip');
             }
+            if ($data['player_nick'] === '') {
+                $errors[] = '_NONICKNAME';
+            }
+            if ($data['ban_reason'] === '') {
+                $errors[] = '_NOREASON';
+            }
+            if ($data['player_id'] !== '' && !valid_steamid($data['player_id'])) {
+                $errors[] = '_STEAMIDINVALID';
+            }
+            $ip = $data['player_ip'] ?? (string)$ban['player_ip'];
+            if ($ip !== '' && !valid_ip($ip)) {
+                $errors[] = '_IPINVALID';
+            }
+            if ($data['ban_type'] === 'S' && $data['player_id'] === '') {
+                $errors[] = '_NOBANSTEAMID';
+            }
+            if ($data['ban_type'] === 'SI' && $ip === '') {
+                $errors[] = '_NOIP';
+            }
+            $end = (int)$ban['ban_created'] + $data['ban_length'] * 60;
+            $data['expired'] = ($data['ban_length'] > 0 && $end < time()) ? 1 : 0;
+            if (!$errors) {
+                Database::update('bans', $data, ['bid' => $bid]);
+            }
+        }
+        if ($errors) {
+            flash('error', '_ERROR', $errors);
+            redirect($self);
+        }
+        Database::insert('bans_edit', [
+            'bid' => $bid, 'edit_time' => time(), 'admin_nick' => Auth::name(),
+            'edit_reason' => ($unban ? 'Unban: ' : '') . $editReason,
+        ]);
+        log_to_db('Ban edit', ($unban ? 'Unban' : 'Edited ban') . ": ID $bid ({$ban['player_nick']} / {$ban['player_id']})");
+        flash('success', $unban ? '_UNBANNED' : '_BANEDITED');
+        redirect($self);
 
-            if ($ban_length == 0) {
-                $edit_query .= ", `expired` = 0";
-            } elseif (($ban_created + $ban_length * 60) < time()) {
-                $edit_query .= ", `expired` = 1";
+    case 'delete_ban':
+        if (!Auth::canOnBan('bans_delete', $ban)) {
+            abort(403);
+        }
+        ban_delete($bid);
+        log_to_db('Ban edit', "Deleted ban: ID $bid ({$ban['player_nick']} / {$ban['player_id']})");
+        flash('success', '_BANDELETED');
+        redirect('ban_list.php');
+
+    case 'add_comment':
+        if (!$canComment) {
+            abort(403);
+        }
+        $errors = [];
+        $comment = mb_substr(input('comment'), 0, 2000);
+        $name = $isGuest ? mb_substr(input('name'), 0, 35) : Auth::name();
+        $email = $isGuest ? mb_substr(input('email'), 0, 100) : (string)(Auth::user()['email'] ?? '');
+        if ($guestNeedsCaptcha && !captcha_check(input('captcha'))) {
+            $errors[] = '_WRONGCAPTCHA';
+        }
+        if ($isGuest && time() - (int)($_SESSION['_last_post'] ?? 0) < 30) {
+            $errors[] = '_TOOFAST';
+        }
+        if (mb_strlen($comment) < 2) {
+            $errors[] = '_NOCOMMENT';
+        }
+        if ($name === '') {
+            $errors[] = '_NONAME';
+        }
+        if ($email !== '' && !valid_email($email)) {
+            $errors[] = '_EMAILINVALID';
+        }
+        if ($errors) {
+            $_SESSION['_old'] = ['name' => $name, 'email' => $email, 'comment' => $comment];
+            flash('error', '_ERROR', $errors);
+            redirect($self . '#comments');
+        }
+        Database::insert('comments', [
+            'name' => $name, 'comment' => $comment, 'email' => $email,
+            'addr' => client_ip(), 'date' => time(), 'bid' => $bid,
+        ]);
+        $_SESSION['_last_post'] = time();
+        flash('success', '_COMADDED');
+        redirect($self . '#comments');
+
+    case 'edit_comment':
+    case 'delete_comment':
+        $cid = input_int('cid');
+        $perm = action() === 'edit_comment' ? 'bans_edit' : 'bans_delete';
+        if (!Auth::canOnBan($perm, $ban)) {
+            abort(403);
+        }
+        if (action() === 'delete_comment') {
+            Database::delete('comments', ['id' => $cid, 'bid' => $bid]);
+            flash('success', '_COMDELETED');
+        } else {
+            Database::update('comments', ['comment' => mb_substr(input('comment'), 0, 2000)], ['id' => $cid, 'bid' => $bid]);
+            flash('success', '_COMEDITED');
+        }
+        redirect($self . '#comments');
+
+    case 'upload_file':
+        if (!$canUpload) {
+            abort(403);
+        }
+        $errors = [];
+        $upload = $_FILES['file'] ?? null;
+        $types = allowed_file_types($config);
+        if ($guestNeedsCaptcha && !captcha_check(input('captcha'))) {
+            $errors[] = '_WRONGCAPTCHA';
+        }
+        if ($isGuest && time() - (int)($_SESSION['_last_post'] ?? 0) < 30) {
+            $errors[] = '_TOOFAST';
+        }
+        if (!is_array($upload) || !is_string($upload['tmp_name'] ?? null) || ($upload['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+            $errors[] = '_FILENOFILE';
+        } elseif ($upload['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($upload['tmp_name'])) {
+            $errors[] = $upload['error'] === UPLOAD_ERR_INI_SIZE || $upload['error'] === UPLOAD_ERR_FORM_SIZE ? '_FILETOBIG' : '_FILEUPLOADFAIL';
+        } else {
+            $ext = strtolower(pathinfo((string)$upload['name'], PATHINFO_EXTENSION));
+            if (!in_array($ext, $types, true)) {
+                $errors[] = '_FILETYPENOTALLOWED';
+            }
+            if ((int)$upload['size'] > $config->max_file_size * 1024 * 1024) {
+                $errors[] = '_FILETOBIG';
+            }
+        }
+        if (!$errors) {
+            $stored = bin2hex(random_bytes(16)) . '_' . $bid;
+            $target = files_dir() . $stored;
+            if (!move_uploaded_file($upload['tmp_name'], $target)) {
+                $errors[] = '_FILEUPLOADFAIL';
             } else {
-                $edit_query .= ", `expired` = 0";
+                @chmod($target, 0644);
+                make_thumbnail($target);
+                $realName = mb_substr(preg_replace('/[^\w.\- ]/u', '_', basename((string)$upload['name'])), 0, 100);
+                Database::insert('files', [
+                    'upload_time' => time(), 'down_count' => 0, 'bid' => $bid, 'demo_file' => $stored,
+                    'demo_real' => $realName, 'file_size' => (int)$upload['size'],
+                    'comment' => mb_substr(input('comment'), 0, 2000),
+                    'name' => $isGuest ? mb_substr(input('name'), 0, 64) : Auth::name(),
+                    'email' => $isGuest ? mb_substr(input('email'), 0, 64) : (string)(Auth::user()['email'] ?? ''),
+                    'addr' => client_ip(),
+                ]);
+                $_SESSION['_last_post'] = time();
+                flash('success', '_FILEUPLOADSUCCESS');
+                redirect($self . '#files');
             }
-
-            $stmt = $pdo->prepare($edit_query . " WHERE `bid` = :bid");
-            $stmt->execute([
-                ':player_nick' => $player_nick,
-                ':player_id' => $player_id,
-                ':player_ip' => $player_ip,
-                ':ban_type' => $ban_type,
-                ':ban_reason' => $ban_reason,
-                ':ban_length' => $ban_length,
-                ':bid' => $bid
-            ]);
         }
-        log_to_db("Ban edit", ($unban ? "Unban" : "Edited ban") . ": ID $bid (<$player_nick> <$player_id>)");
-    }
-}
+        flash('error', '_ERROR', $errors);
+        redirect($self . '#files');
 
-// Ban delete
-if (isset($_POST["del_ban_x"]) && isset($_POST["bid"])) {
-    if (!has_access("bans_delete")) {
-        $error = "_ACCESSINVALID";
-        header("Location: index.php");
-        exit;
-    }
-
-    $pdo = getPDO();
-    $stmt = $pdo->prepare("SELECT `id`, `demo_file` FROM `{$config->db_prefix}_files` WHERE `bid` = ?");
-    $stmt->execute([$bid]);
-
-    while ($result = $stmt->fetch()) {
-        if (file_exists("include/files/" . $result["demo_file"])) {
-            if (file_exists("include/files/" . $result["demo_file"] . "_thumb")) {
-                unlink("include/files/" . $result["demo_file"] . "_thumb");
-            }
-            unlink("include/files/" . $result["demo_file"]);
+    case 'edit_file':
+    case 'delete_file':
+        $did = input_int('did');
+        $perm = action() === 'edit_file' ? 'bans_edit' : 'bans_delete';
+        if (!Auth::canOnBan($perm, $ban)) {
+            abort(403);
         }
-        $pdo->prepare("DELETE FROM `{$config->db_prefix}_files` WHERE `id` = ? LIMIT 1")->execute([$result["id"]]);
-    }
-
-    $pdo->prepare("DELETE FROM `{$config->db_prefix}_comments` WHERE `bid` = ?")->execute([$bid]);
-    $ban_row = sql_get_ban_details($bid);
-
-    $pdo->prepare("DELETE FROM `{$config->db_prefix}_bans` WHERE `bid` = ? LIMIT 1")->execute([$bid]);
-    log_to_db("Ban edit", "Deleted ban: ID $bid (<{$ban_row["player_nick"]}> <{$ban_row["player_id"]}>)");
-
-    header("Location: index.php");
-    exit;
+        $file = Database::one('SELECT * FROM ' . Database::table('files') . ' WHERE `id` = :id AND `bid` = :bid', ['id' => $did, 'bid' => $bid]);
+        if (!$file) {
+            abort(404, '_FILENOTFOUND');
+        }
+        if (action() === 'delete_file') {
+            delete_stored_file((string)$file['demo_file']);
+            Database::delete('files', ['id' => $did]);
+            flash('success', '_FILEDELSUCCESS');
+        } else {
+            Database::update('files', ['comment' => mb_substr(input('comment'), 0, 2000)], ['id' => $did]);
+            flash('success', '_FILEEDITED');
+        }
+        redirect($self . '#files');
 }
 
-// Comment delete
-if (isset($_POST["del_comment_x"]) && isset($_POST["cid"]) && $_SESSION["loggedin"]) {
-    if (!has_access("bans_delete")) {
-        $error = "_ACCESSINVALID";
-        header("Location: index.php");
-        exit;
-    }
-
-    $pdo = getPDO();
-    $pdo->prepare("DELETE FROM `{$config->db_prefix}_comments` WHERE `id` = ? LIMIT 1")->execute([(int)$_POST["cid"]]);
+// ----------------------------------------------------------------------------
+// Display
+// ----------------------------------------------------------------------------
+$history = [];
+if ($ban['player_id'] !== '' || $ban['player_ip'] !== '') {
+    $history = array_map('ban_present', Database::all(
+        ban_select_sql() . ' WHERE ba.`bid` <> :bid
+            AND ((ba.`player_id` = :pid AND ba.`player_id` <> \'\') OR (ba.`player_ip` = :ip AND ba.`player_ip` <> \'\'))
+          ORDER BY ba.`ban_created` DESC LIMIT 50',
+        ['bid' => $bid, 'pid' => (string)$ban['player_id'], 'ip' => (string)$ban['player_ip']]
+    ));
 }
 
-// Comment add
-if (isset($_POST["add_comment"]) && $bid) {
-    if (($_SESSION["captcha_code"] !== 0 || $_POST["verify"] !== $_SESSION["captcha_code"]) && !$_SESSION["loggedin"]) {
-        $error[] = "_WRONGCAPTCHA";
-    }
-
-    if (empty($error)) {
-        $pdo = getPDO();
-        $pdo->prepare("INSERT INTO `{$config->db_prefix}_comments` (`name`, `comment`, `email`, `addr`, `date`, `bid`) 
-            VALUES (?, ?, ?, ?, UNIX_TIMESTAMP(), ?)")
-            ->execute([$name, $comment, $email, $_SERVER["REMOTE_ADDR"], $bid]);
-    }
-
-    new_captcha();
+$files = Database::all('SELECT * FROM ' . Database::table('files') . ' WHERE `bid` = :bid ORDER BY `upload_time`', ['bid' => $bid]);
+foreach ($files as &$f) {
+    $f['thumb'] = ($p = stored_file_path((string)$f['demo_file'], true)) !== null && is_file($p);
 }
+unset($f);
 
-// Comment edit
-if (isset($_POST["edit_comment"]) && isset($_POST["cid"]) && $_SESSION["loggedin"]) {
-  if (!has_access("bans_edit")) {
-      header("Location: index.php");
-      exit;
-  }
-
-  $pdo = getPDO();
-  $stmt = $pdo->prepare("UPDATE `{$config->db_prefix}_comments` SET `comment` = ?, `name` = ?, `email` = ? WHERE `id` = ?");
-  $stmt->execute([$comment, $name, $email, (int)$_POST["cid"]]);
-  $msg_comment = "_COMEDITED";
+if ($guestNeedsCaptcha && ($canComment || $canUpload)) {
+    captcha_new();
 }
+$old = $_SESSION['_old'] ?? [];
+unset($_SESSION['_old']);
 
-// File delete
-if (isset($_POST["del_demo_x"]) && isset($_POST["did"]) && $_SESSION["loggedin"]) {
-  if (!has_access("bans_delete")) {
-      header("Location: index.php");
-      exit;
-  }
-
-  $pdo = getPDO();
-  $stmt = $pdo->prepare("SELECT `demo_file` FROM `{$config->db_prefix}_files` WHERE `id` = ?");
-  $stmt->execute([(int)$_POST["did"]]);
-  $file = $stmt->fetchColumn();
-
-  if ($file) {
-      if (file_exists("include/files/" . $file . "_thumb")) {
-          unlink("include/files/" . $file . "_thumb");
-      }
-      if (file_exists("include/files/" . $file)) {
-          unlink("include/files/" . $file);
-          $stmt = $pdo->prepare("DELETE FROM `{$config->db_prefix}_files` WHERE `id` = ? LIMIT 1");
-          $stmt->execute([(int)$_POST["did"]]);
-          $msg_demo = "_FILEDELSUCCESS";
-      } else {
-          $msg_demo = "_FILENOTFOUND";
-      }
-  }
-}
-
-// File edit
-if (isset($_POST["edit_demo"]) && isset($_POST["did"]) && $_SESSION["loggedin"]) {
-  if (!has_access("bans_edit")) {
-      header("Location: index.php");
-      exit;
-  }
-
-  $pdo = getPDO();
-  $stmt = $pdo->prepare("UPDATE `{$config->db_prefix}_files` SET `comment` = ?, `name` = ?, `email` = ? WHERE `id` = ?");
-  $stmt->execute([$comment, $name, $email, (int)$_POST["did"]]);
-  $msg_demo = "_FILEEDITED";
-}
-
-// File add
-if (isset($_POST["add_demo"]) && isset($_FILES['filename']['tmp_name'])) {
-  global $config;
-
-  $pdo = getPDO();
-  $real_file = $_FILES['filename']['name'];
-
-  if (($_SESSION["captcha_code"] != 0 || $_POST["verify"] != $_SESSION["captcha_code"]) && $_SESSION["loggedin"] !== true) {
-      $error[] = "_WRONGCAPTCHA";
-  }
-
-  $types = explode(",", $config->file_type);
-  $file_type = strtolower(pathinfo($real_file, PATHINFO_EXTENSION));
-
-  if (!$real_file) {
-      $error[] = "_FILENOFILE";
-  } elseif (!in_array($file_type, $types)) {
-      $error[] = "_FILETYPENOTALLOWED";
-  }
-
-  if ($_FILES['filename']['size'] >= ($config->max_file_size * 1024 * 1024)) {
-      $error[] = "_FILETOBIG";
-  }
-
-  if (empty($error)) {
-      $temp_file = md5(microtime() . uniqid(rand(), true)) . "_" . $bid;
-      if (move_uploaded_file($_FILES['filename']['tmp_name'], "include/files/" . $temp_file)) {
-          if (extension_loaded("gd")) {
-              mkthumb($temp_file);
-          }
-      } else {
-          $error[] = "_FILEUPLOADFAIL";
-      }
-  }
-
-  if (empty($error)) {
-      $stmt = $pdo->prepare("INSERT INTO `{$config->db_prefix}_files` (`upload_time`, `down_count`, `bid`, `demo_file`, `demo_real`, `comment`, `name`, `email`, `file_size`, `addr`) 
-                             VALUES (UNIX_TIMESTAMP(), 0, ?, ?, ?, ?, ?, ?, ?, ?)");
-      $stmt->execute([$bid, $temp_file, $real_file, $comment, $name, $email, $_FILES['filename']['size'], $_SERVER["REMOTE_ADDR"]]);
-      $msg_demo = "_FILEUPLOADSUCCESS";
-  }
-
-  new_captcha();
-}
-
-// File download
-if (isset($_POST["down_demo_x"]) && isset($_POST["did"])) {
-  global $config;
-
-  $pdo = getPDO();
-  $stmt = $pdo->prepare("SELECT `demo_file`, `demo_real`, `file_size` FROM `{$config->db_prefix}_files` WHERE `id` = ? LIMIT 1");
-  $stmt->execute([(int)$_POST["did"]]);
-  $result = $stmt->fetch();
-
-  if ($result) {
-      $file_local = $config->path_root . "/include/files/" . $result['demo_file'];
-      $file_real = $result['demo_real'];
-
-      if (!file_exists($file_local)) {
-          $error[] = "_FILENOTAVAILABLE";
-      }
-
-      if (empty($error)) {
-          $stmt = $pdo->prepare("UPDATE `{$config->db_prefix}_files` SET `down_count` = `down_count` + 1 WHERE `id` = ?");
-          $stmt->execute([(int)$_POST["did"]]);
-
-          if (ini_get('zlib.output_compression')) {
-              ini_set('zlib.output_compression', 'Off');
-          }
-
-          header("Content-Type: application/download");
-          header('Content-Disposition: attachment; filename="' . basename($file_real) . '"');
-          header('Content-Length: ' . filesize($file_local));
-          readfile($file_local);
-          exit;
-      }
-  }
-}
-
-$ban_details = sql_get_ban_details($bid);
-
-$activ_count = 0;
-$ban_details_activ = sql_get_ban_details_activ($ban_details["player_id"], $activ_count, $bid);
-
-$exp_count = 0;
-$ban_details_exp = sql_get_ban_details_exp($ban_details["player_id"], $exp_count, $bid);
-
-// Pobranie edytowanych banów
-$pdo = getPDO();
-$stmt = $pdo->prepare("SELECT * FROM {$config->db_prefix}_bans_edit WHERE bid = ?");
-$stmt->execute([$bid]);
-$ban_details_edits = $stmt->fetchAll();
-$edit_count = count($ban_details_edits);
-
-// Generowanie steamcomid
-if (!empty($ban_details["player_id"])) {
-  $ban_details["player_comid"] = GetFriendId($ban_details["player_id"]);
-}
-
-$smarty->assign("ban_detail", $ban_details);
-$smarty->assign("ban_details_activ", $ban_details_activ);
-$smarty->assign("ban_details_exp", $ban_details_exp);
-$smarty->assign("ban_details_edits", $ban_details_edits);
-$smarty->assign("edit_count", $edit_count);
-$smarty->assign("activ_count", $activ_count);
-$smarty->assign("exp_count", $exp_count);
-$smarty->assign("type_output", ["SteamID", "SteamID & IP"]);
-$smarty->assign("type_values", ["S", "SI"]);
-$smarty->assign("site", $site);
-
-// Get comments
-$comments_count = 0;
-$comments = sql_get_comments($bid, $comments_count);
-$smarty->assign("comments", $comments);
-$smarty->assign("comments_count", $comments_count);
-
-// Get files
-$files_count = 0;
-$demos = sql_get_files($bid, $files_count);
-$smarty->assign("demos", $demos);
-$smarty->assign("demos_count", $files_count);
-
-$smarty->assign("msg_banedit", $msg_banedit);
-$smarty->assign("msg_demo", $msg_demo);
-$smarty->assign("msg_comment", $msg_comment);
-$smarty->assign("ajaxlist", $_GET["ajax"]);
-
-?>
+$view->page('ban_detail.tpl', [
+    'ban'        => $ban,
+    'history'    => $history,
+    'edits'      => Database::all('SELECT * FROM ' . Database::table('bans_edit') . ' WHERE `bid` = :bid ORDER BY `edit_time` DESC', ['bid' => $bid]),
+    'comments'   => $config->use_comment ? Database::all('SELECT * FROM ' . Database::table('comments') . ' WHERE `bid` = :bid ORDER BY `date`', ['bid' => $bid]) : [],
+    'files'      => $files,
+    'can'        => [
+        'edit'    => Auth::canOnBan('bans_edit', $ban),
+        'delete'  => Auth::canOnBan('bans_delete', $ban),
+        'unban'   => Auth::canOnBan('bans_unban', $ban),
+        'comment' => $canComment,
+        'upload'  => $canUpload,
+        'captcha' => $guestNeedsCaptcha,
+    ],
+    'upload'     => ['types' => implode(', ', allowed_file_types($config)), 'max' => $config->max_file_size],
+    'old'        => $old,
+    'show_comments' => (bool)$config->use_comment,
+    'show_files' => (bool)$config->use_demo,
+], '_TITLEBANDETAIL');

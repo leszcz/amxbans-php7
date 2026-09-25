@@ -1,0 +1,24 @@
+# AMXBans - Apache 2.4 configuration
+Options -Indexes
+
+# Only these entry points and static assets are served; source code,
+# configuration, uploads, backups and libraries are not.
+<IfModule mod_alias.c>
+    RedirectMatch 403 (?i)^.*/(include|templates|templates_c|vendor|language|build|temp|install|node_modules|tests|docs)(/|$)
+    RedirectMatch 403 (?i)^.*/(composer\.(json|lock)|package(-lock)?\.json|phpdoc\.dist\.xml|phpstan\.neon\.dist|\.git.*|.*\.(md|lock|sql|ini|log|tpl|inc|dist))$
+</IfModule>
+
+<FilesMatch "\.(?i:tpl|inc|sql|ini|log|md|lock)$">
+    Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "same-origin"
+</IfModule>
+
+# PHP files uploaded into images/ must never run
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^images/.*\.(php|phtml|phar|php\d)$ - [F,L,NC]
+</IfModule>

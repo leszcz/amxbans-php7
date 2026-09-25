@@ -1,0 +1,17 @@
+{
+    "name": "leszcz/amxbans-php7",
+    "description": "AMXBans web interface for PHP 8",
+    "type": "project",
+    "license": "CC-BY-NC-SA-2.0",
+    "require": {
+        "php": ">=8.1",
+        "ext-pdo": "*",
+        "ext-pdo_mysql": "*",
+        "ext-mbstring": "*",
+        "smarty/smarty": "^5.8"
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true
+    }
+}

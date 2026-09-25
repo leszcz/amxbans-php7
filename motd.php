@@ -1,31 +1,33 @@
 <?php
-	/*
-		by xPaw :facepalm:
-	*/
-	
-	require "include/geoip.inc";
-	require "include/config.inc.php";
-	require "include/amxx_langs.inc.php";
-	
-	$Id = sql_get_ban_details( (int)SubStr( $_GET[ 'sid' ], 1 ) );
-	
-	if( !$Id[ 'bid' ] ) Die( "Damnit, damnit, damnit, damnit!!" );
-	
-	$ShowAdmin = $_GET[ 'adm' ] == 1 ? 1 : 0;
-	$Language = $_GET[ 'lang' ];
-	$_SESSION[ 'lang' ] = $amxx_langs[ $Language ] ? $amxx_langs[ $Language ] : "english";
-	
-	$GeoIp = geoip_open( $config->path_root."/include/GeoIP.dat", GEOIP_STANDARD );
-	$Id[ 'cc_player' ] = geoip_country_code_by_addr( $GeoIp, $Id[ 'player_ip' ] );
-	
-	if( $ShowAdmin )
-		$Id[ 'cc_admin' ] = geoip_country_code_by_addr( $GeoIp, $Id[ 'admin_ip' ] );
-	
-	geoip_close( $GeoIp );
-	
-	$Smarty = new dynamicPage;
-	$Smarty->assign( "show_admin", $ShowAdmin );
-	$Smarty->assign( "ban_detail", $Id );
-	/*$smarty->assign( "design", $config->design ); */
-	$Smarty->display( 'motd.tpl' );
-?>
+declare(strict_types=1);
+
+/**
+ * Ban information for the in-game MOTD window of a banned player.
+ *
+ * URL used by the AMXBans plugin: motd.php?sid=<char><bid>&adm=<0|1>&lang=<amxx language code>
+ * (configured per server in Admin area → Server). Template: motd.tpl (standalone page).
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
+
+define('AMXB_SKIP_CSRF', true);
+require __DIR__ . '/include/bootstrap.php';
+require __DIR__ . '/include/amxx_langs.inc.php';
+
+$sid = query('sid');
+$bid = (int)preg_replace('/\D/', '', $sid);
+$ban = $bid > 0 ? ban_find($bid) : null;
+if (!$ban) {
+    abort(404, '_BANNOTFOUND');
+}
+
+$langCode = query('lang');
+if (isset($amxx_langs[$langCode])) {
+    Lang::set($amxx_langs[$langCode]);
+}
+
+$view->assign('show_admin', query('adm') === '1');
+$view->assign('ban', $ban);
+$view->assignCommon();
+header('Content-Type: text/html; charset=UTF-8');
+$view->display('motd.tpl');

@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+/* Template sources Tailwind scans for class names */
+@source "../../templates";
+@source "../../include";
+@source "../../install";
+@source "../js";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --color-brand-50: oklch(0.98 0.02 60);
+  --color-brand-100: oklch(0.95 0.05 60);
+  --color-brand-200: oklch(0.9 0.09 58);
+  --color-brand-300: oklch(0.83 0.13 55);
+  --color-brand-400: oklch(0.76 0.16 52);
+  --color-brand-500: oklch(0.7 0.18 48);
+  --color-brand-600: oklch(0.63 0.18 44);
+  --color-brand-700: oklch(0.54 0.16 42);
+  --color-brand-800: oklch(0.45 0.13 40);
+  --color-brand-900: oklch(0.38 0.1 40);
+}
+
+@layer base {
+  html { @apply antialiased; }
+  body { @apply bg-zinc-100 text-zinc-800 dark:bg-zinc-950 dark:text-zinc-200; }
+  [x-cloak] { display: none !important; }
+  ::selection { @apply bg-brand-500/30; }
+}
+
+@layer components {
+  .card { @apply rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-800 dark:bg-zinc-900; }
+  .card-header { @apply flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-5 py-3.5 dark:border-zinc-800; }
+  .card-title { @apply flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-white; }
+  .card-body { @apply p-5; }
+
+  .btn { @apply inline-flex cursor-pointer items-center justify-center gap-1.5 rounded-lg px-3.5 py-2 text-sm font-medium whitespace-nowrap transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:cursor-not-allowed disabled:opacity-50; }
+  .btn-sm { @apply px-2.5 py-1.5 text-xs; }
+  .btn-icon { @apply p-2; }
+  .btn-primary { @apply bg-brand-600 text-white shadow-sm hover:bg-brand-500; }
+  .btn-secondary { @apply border border-zinc-300 bg-white text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700; }
+  .btn-ghost { @apply text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white; }
+  .btn-danger { @apply bg-red-600 text-white shadow-sm hover:bg-red-500; }
+  .btn-danger-ghost { @apply text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/60; }
+  .btn-success { @apply bg-emerald-600 text-white shadow-sm hover:bg-emerald-500; }
+
+  .label { @apply mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300; }
+  .hint { @apply mt-1 text-xs text-zinc-500 dark:text-zinc-400; }
+  .input { @apply block w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 shadow-sm placeholder:text-zinc-400 focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30 focus:outline-none disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500; }
+  .checkbox { @apply size-4 rounded border-zinc-300 accent-brand-600 dark:border-zinc-600; }
+
+  .badge { @apply inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset whitespace-nowrap; }
+  .badge-red { @apply bg-red-50 text-red-700 ring-red-600/20 dark:bg-red-500/10 dark:text-red-400 dark:ring-red-500/30; }
+  .badge-green { @apply bg-emerald-50 text-emerald-700 ring-emerald-600/20 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/30; }
+  .badge-amber { @apply bg-amber-50 text-amber-800 ring-amber-600/20 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/30; }
+  .badge-zinc { @apply bg-zinc-100 text-zinc-600 ring-zinc-500/20 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700; }
+  .badge-blue { @apply bg-sky-50 text-sky-700 ring-sky-600/20 dark:bg-sky-500/10 dark:text-sky-400 dark:ring-sky-500/30; }
+
+  .table-wrap { @apply overflow-x-auto; }
+  .table { @apply w-full text-left text-sm; }
+  .table thead th { @apply border-b border-zinc-200 bg-zinc-50 px-4 py-2.5 text-xs font-semibold tracking-wide text-zinc-500 uppercase dark:border-zinc-800 dark:bg-zinc-900/60 dark:text-zinc-400; }
+  .table tbody td { @apply border-b border-zinc-100 px-4 py-3 align-middle dark:border-zinc-800/70; }
+  .table tbody tr:last-child td { @apply border-b-0; }
+  .table-hover tbody tr { @apply transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/40; }
+
+  .link { @apply font-medium text-brand-600 underline-offset-2 hover:underline dark:text-brand-400; }
+  .muted { @apply text-zinc-500 dark:text-zinc-400; }
+  .dl-grid { @apply grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-[12rem_1fr]; }
+  .dl-grid dt { @apply text-sm font-medium text-zinc-500 dark:text-zinc-400; }
+  .dl-grid dd { @apply text-sm break-words text-zinc-900 dark:text-zinc-100; }
+
+  .nav-link { @apply flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-white; }
+  .nav-link-active { @apply bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white; }
+
+  .alert { @apply flex items-start gap-3 rounded-lg border px-4 py-3 text-sm; }
+  .alert-success { @apply border-emerald-200 bg-emerald-50 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300; }
+  .alert-error { @apply border-red-200 bg-red-50 text-red-800 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300; }
+  .alert-info { @apply border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-300; }
+  .alert-warning { @apply border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/50 dark:text-amber-300; }
+
+  .modal-backdrop { @apply fixed inset-0 z-40 bg-zinc-950/60 backdrop-blur-sm; }
+  .modal-panel { @apply relative z-50 w-full max-w-lg rounded-xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-900; }
+
+  .bb-quote { @apply my-1 border-l-4 border-zinc-300 pl-3 text-zinc-600 italic dark:border-zinc-700 dark:text-zinc-400; }
+  .console { @apply max-h-96 overflow-auto rounded-lg bg-zinc-950 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-emerald-300; }
+  .stat { @apply flex items-center gap-4 rounded-xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-zinc-800 dark:bg-zinc-900; }
+  .stat-icon { @apply flex size-11 shrink-0 items-center justify-center rounded-lg; }
+  .pixel { image-rendering: pixelated; }
+}
+
+/* ------------------------------------------------------------------------
+ * "classic" design - look of the old AMXBans GM default template.
+ * Tailwind 4 reads colors/radii from CSS variables, so re-defining them
+ * here re-skins every component used by the modern templates.
+ * --------------------------------------------------------------------- */
+.theme-classic {
+  --font-sans: Verdana, Tahoma, "DejaVu Sans", Arial, sans-serif;
+  --color-brand-300: #efe0bd;
+  --color-brand-400: #e3cc9a;
+  --color-brand-500: #cdb27a;
+  --color-brand-600: #9c8150;
+  --color-brand-700: #7d6640;
+  --color-zinc-950: #161616;
+  --color-zinc-900: #222222;
+  --color-zinc-800: #333333;
+  --color-zinc-700: #3e3e3e;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 3px;
+}
+/* Not in a layer on purpose: must win over utility classes of the modern templates. */
+  .theme-classic body { background: #1b1b1b; font-size: 13px; }
+  .classic-topbar { @apply border-b border-black bg-linear-to-b from-[#2b2b2b] to-black shadow-md; }
+  .classic-navlink { @apply text-[13px] font-bold text-zinc-300 hover:text-brand-400; }
+  .classic-navlink-active { @apply text-brand-400; }
+  .classic-select { @apply rounded-sm border border-zinc-600 bg-white px-1 py-0.5 text-xs text-black; }
+  .classic-input { @apply rounded-sm border border-zinc-500 bg-white px-1.5 py-0.5 text-xs text-black; }
+  .classic-button { @apply rounded-sm border border-zinc-400 bg-linear-to-b from-zinc-100 to-zinc-300 px-2 py-0.5 text-xs text-black; }
+  .classic-tabs { @apply bg-linear-to-b from-[#3a3a3a] to-[#1f1f1f]; }
+  .classic-tab { @apply cursor-pointer px-5 py-2.5 text-sm font-bold text-zinc-300 hover:text-brand-400; }
+  .classic-tab-active { @apply bg-[#111] text-brand-400; }
+  .theme-classic .card { @apply shadow-none; }
+  .theme-classic .card-header { @apply bg-linear-to-b from-[#3a3a3a] to-[#262626] py-2.5; }
+  .theme-classic .card-title { @apply text-sm text-brand-400; }
+  .theme-classic .table thead th { @apply bg-linear-to-b from-[#3a3a3a] to-[#262626] text-[11px] tracking-normal text-zinc-300 normal-case; }
+  .theme-classic .btn-primary { @apply text-zinc-950; }
+  .theme-classic h1 { @apply text-brand-400; }

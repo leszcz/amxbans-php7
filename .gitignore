@@ -1,3 +1,38 @@
+# Local configuration (created by setup.php)
 include/db.config.inc.php
+
+# Runtime data
 templates_c/*
+!templates_c/.gitkeep
+!templates_c/.htaccess
+include/files/*
+!include/files/index.php
+include/backup/*.sql
+temp/*
+!temp/index.php
+!temp/.htaccess
+!temp/empty.txt
+
+# Frontend build tooling (compiled files in assets/dist are committed)
+node_modules/
+
+# Composer: vendor/ is committed so the package can be uploaded via FTP,
+# but documentation and tests of libraries are not needed.
+vendor/**/tests/
+vendor/**/docs/
+vendor/**/demo/
+vendor/**/utilities/
+vendor/**/.github/
+vendor/smarty/smarty/*.md
+vendor/smarty/smarty/*.sh
+vendor/smarty/smarty/*.yml
+vendor/smarty/smarty/Makefile
+vendor/smarty/smarty/TODO.txt
+vendor/smarty/smarty/changelog/
+vendor/smarty/smarty/phpunit.xml
+vendor/smarty/smarty/.git*
+
 *.zip
+.DS_Store
+build/api/
+build/.phpdoc-cache/
