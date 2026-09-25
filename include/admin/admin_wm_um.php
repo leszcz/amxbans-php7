@@ -50,12 +50,7 @@ if (isset($_POST["mid"])) {
 }
 
 // Create a PDO connection
-try {
-    $pdo = new PDO("mysql:host=".$config->db_host.";dbname=".$config->db_db, $config->db_user, $config->db_pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
-}
+$pdo = getPDO();
 
 // Delete menu
 if (isset($_POST["del"])) {

@@ -26,12 +26,7 @@ function get_post($key, $default = null) {
 }
 
 // Create a PDO connection
-try {
-    $pdo = new PDO("mysql:host=" . $config->db_host . ";dbname=" . $config->db_db, $config->db_user, $config->db_pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
-}
+$pdo = getPDO();
 
 // Check if a level ID is provided
 $lid = isset($_POST["lid"]) && is_numeric($_POST["lid"]) ? (int)$_POST["lid"] : "";

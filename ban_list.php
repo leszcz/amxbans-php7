@@ -13,11 +13,7 @@ require_once("include/functions.inc.php");
 require_once("include/geoip.inc");
 require_once("include/thumbs.inc.php");
 
-// Create a new PDO connection
-$pdo = new PDO("mysql:host={$config->db_host};dbname={$config->db_db}", $config->db_user, $config->db_pass, [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_OBJ
-]);
+$pdo = getPDO();
 
 // Template generation
 $title = "_TITLEBANLIST";

@@ -26,12 +26,7 @@ $admin_site = "wa";
 $title2 = "_TITLEWEBADMIN";
 
 // Connect to the database using PDO
-try {
-    $pdo = new PDO("mysql:host=" . $config->db_host . ";dbname=" . $config->db_db, $config->db_user, $config->db_pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
-}
+$pdo = getPDO();
 
 // Check if UID is provided
 $uid = isset($_POST["uid"]) && is_numeric($_POST["uid"]) ? (int)$_POST["uid"] : "";

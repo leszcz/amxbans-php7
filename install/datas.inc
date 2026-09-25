@@ -18,13 +18,7 @@
   If not, see <http://creativecommons.org/licenses/by-nc-sa/2.0/>.
 */
 
-try {
-    // Połączenie z bazą danych za pomocą PDO
-    $pdo = new PDO("mysql:host=" . $_SESSION["dbhost"] . ";dbname=" . $_SESSION["dbdb"], $_SESSION["dbuser"], $_SESSION["dbpass"]);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Connection failed: " . $e->getMessage());
-}
+$pdo = install_db_connect();
 
 $dbprefix = $_SESSION["dbprefix"];
 

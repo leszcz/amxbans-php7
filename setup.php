@@ -6,6 +6,7 @@ session_start();
 
 require_once("install/functions.inc");
 require_once("include/functions.inc.php");
+require_once("include/Database.php");
 
 $config = new stdClass();
 $config->v_web = "Gm 1.6";
@@ -134,11 +135,7 @@ if ($sitenr == 4 && isset($_POST["check4"])) {
     } else {
         // Attempt to connect to the database using PDO
         try {
-            $dsn = "mysql:host=$dbhost;dbname=$dbdb;charset=utf8";
-            $pdo = new PDO($dsn, $dbuser, $dbpass, [
-                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-            ]);
+            $pdo = install_db_connect();
 
             // Check user privileges by querying the database
             $privileges = sql_get_privilege($pdo);

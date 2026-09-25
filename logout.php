@@ -3,13 +3,7 @@ session_start();
 
 include("include/config.inc.php");
 
-try {
-    // Establish a PDO connection
-    $pdo = new PDO("mysql:host=" . $config->db_host . ";dbname=" . $config->db_db, $config->db_user, $config->db_pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
-}
+$pdo = getPDO();
 
 // Unset the session cookie
 if (isset($_COOKIE[$config->cookie])) {

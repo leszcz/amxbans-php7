@@ -2,21 +2,7 @@
 $config->document_root = "/";
 $config->path_root = getcwd();
   
-function getPDO() {
-  global $config;
-  static $pdo = null;
-  if ($pdo === null) {
-      try {
-          $pdo = new PDO("mysql:host=" . $config->db_host . ";dbname=" . $config->db_db . ";charset=utf8mb4", $config->db_user, $config->db_pass);
-          $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-          $pdo->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-          $pdo->setAttribute(PDO::ATTR_EMULATE_PREPARES, false);
-      } catch (PDOException $e) {
-          die("Database connection failed: " . $e->getMessage());
-      }
-  }
-  return $pdo;
-}
+require_once __DIR__ . "/Database.php";
 
 function sql_set_websettings(): array {
   global $config;

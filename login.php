@@ -13,12 +13,7 @@ $max_trys = 3;  // Max tries before user is blocked
 $max_trys_block = 10;  // Minutes to block login after max tries wrong logins
 
 // Connect to the database using PDO
-try {
-    $pdo = new PDO("mysql:host=" . $config->db_host . ";dbname=" . $config->db_db, $config->db_user, $config->db_pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
-}
+$pdo = getPDO();
 
 if (isset($_POST["action"])) {
     $uname = filter_var(trim($_POST["user"]), FILTER_SANITIZE_STRING);

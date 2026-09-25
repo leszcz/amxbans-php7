@@ -13,13 +13,7 @@ if (!has_access("websettings_view")) {
 $admin_site = "ms";
 $title2 = "_TITLESITE";
 
-try {
-    // Establish a PDO connection
-    $pdo = new PDO("mysql:host=" . $config->db_host . ";dbname=" . $config->db_db, $config->db_user, $config->db_pass);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Database connection failed: " . $e->getMessage());
-}
+$pdo = getPDO();
 
 // Searching for templates (designs)
 $designs = [];
