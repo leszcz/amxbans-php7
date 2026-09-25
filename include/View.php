@@ -24,7 +24,13 @@ final class View extends Smarty
         }
         $config->design = $design;
 
-        $this->setTemplateDir(AMXB_ROOT . '/templates/' . $design . '/');
+        // A design only has to contain the templates it changes (at least layout.tpl);
+        // everything else falls back to the "modern" templates.
+        $dirs = [AMXB_ROOT . '/templates/' . $design . '/'];
+        if ($design !== 'modern') {
+            $dirs[] = AMXB_ROOT . '/templates/modern/';
+        }
+        $this->setTemplateDir($dirs);
         $this->setCompileDir(AMXB_ROOT . '/templates_c/');
         $this->setCacheDir(AMXB_ROOT . '/templates_c/cache/');
         $this->setEscapeHtml(true);

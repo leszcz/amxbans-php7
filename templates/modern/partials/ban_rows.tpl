@@ -5,7 +5,7 @@
     <tbody>
       {foreach $list as $ban}
         <tr>
-          <td><img src="{$ban.mod|gameicon}" alt="" class="size-5 pixel"></td>
+          <td><img src="{$ban.mod|gameicon}" alt="" class="size-5 rounded-sm pixel dark:bg-zinc-300 dark:p-px"></td>
           <td class="whitespace-nowrap muted tabular-nums">{$ban.created|datetime:'date'}</td>
           <td><a class="font-medium text-zinc-900 hover:text-brand-600 dark:text-white dark:hover:text-brand-400" href="ban_list.php?bid={$ban.bid}"><img src="{$ban.cc|flag}" alt="" class="mr-1.5 inline h-3 w-4 pixel">{$ban.player_nick}</a></td>
           <td class="hidden font-mono text-xs md:table-cell">{$ban.player_id}</td>

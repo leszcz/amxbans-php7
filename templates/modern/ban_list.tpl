@@ -50,7 +50,7 @@
       {foreach $bans as $ban}
         <tbody x-data="{ open: false }" class="border-b border-zinc-100 last:border-0 dark:border-zinc-800/70">
           <tr class="cursor-pointer" x-on:click="open = !open">
-            <td><img src="{$ban.mod|gameicon}" alt="{$ban.mod}" title="{if $ban.website}{"_WEB"|lang}{else}{$ban.mod}{/if}" class="size-5 pixel"></td>
+            <td><img src="{$ban.mod|gameicon}" alt="{$ban.mod}" title="{if $ban.website}{"_WEB"|lang}{else}{$ban.mod}{/if}" class="size-5 rounded-sm pixel dark:bg-zinc-300 dark:p-px"></td>
             <td class="hidden whitespace-nowrap tabular-nums muted sm:table-cell">{$ban.created|datetime:'date'}</td>
             <td>
               <div class="flex items-center gap-2">

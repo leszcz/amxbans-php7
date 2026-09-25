@@ -88,3 +88,41 @@
   .stat-icon { @apply flex size-11 shrink-0 items-center justify-center rounded-lg; }
   .pixel { image-rendering: pixelated; }
 }
+
+/* ------------------------------------------------------------------------
+ * "classic" design - look of the old AMXBans GM default template.
+ * Tailwind 4 reads colors/radii from CSS variables, so re-defining them
+ * here re-skins every component used by the modern templates.
+ * --------------------------------------------------------------------- */
+.theme-classic {
+  --font-sans: Verdana, Tahoma, "DejaVu Sans", Arial, sans-serif;
+  --color-brand-300: #efe0bd;
+  --color-brand-400: #e3cc9a;
+  --color-brand-500: #cdb27a;
+  --color-brand-600: #9c8150;
+  --color-brand-700: #7d6640;
+  --color-zinc-950: #161616;
+  --color-zinc-900: #222222;
+  --color-zinc-800: #333333;
+  --color-zinc-700: #3e3e3e;
+  --radius-md: 2px;
+  --radius-lg: 3px;
+  --radius-xl: 3px;
+}
+/* Not in a layer on purpose: must win over utility classes of the modern templates. */
+  .theme-classic body { background: #1b1b1b; font-size: 13px; }
+  .classic-topbar { @apply border-b border-black bg-linear-to-b from-[#2b2b2b] to-black shadow-md; }
+  .classic-navlink { @apply text-[13px] font-bold text-zinc-300 hover:text-brand-400; }
+  .classic-navlink-active { @apply text-brand-400; }
+  .classic-select { @apply rounded-sm border border-zinc-600 bg-white px-1 py-0.5 text-xs text-black; }
+  .classic-input { @apply rounded-sm border border-zinc-500 bg-white px-1.5 py-0.5 text-xs text-black; }
+  .classic-button { @apply rounded-sm border border-zinc-400 bg-linear-to-b from-zinc-100 to-zinc-300 px-2 py-0.5 text-xs text-black; }
+  .classic-tabs { @apply bg-linear-to-b from-[#3a3a3a] to-[#1f1f1f]; }
+  .classic-tab { @apply cursor-pointer px-5 py-2.5 text-sm font-bold text-zinc-300 hover:text-brand-400; }
+  .classic-tab-active { @apply bg-[#111] text-brand-400; }
+  .theme-classic .card { @apply shadow-none; }
+  .theme-classic .card-header { @apply bg-linear-to-b from-[#3a3a3a] to-[#262626] py-2.5; }
+  .theme-classic .card-title { @apply text-sm text-brand-400; }
+  .theme-classic .table thead th { @apply bg-linear-to-b from-[#3a3a3a] to-[#262626] text-[11px] tracking-normal text-zinc-300 normal-case; }
+  .theme-classic .btn-primary { @apply text-zinc-950; }
+  .theme-classic h1 { @apply text-brand-400; }
