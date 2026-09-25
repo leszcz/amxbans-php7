@@ -36,7 +36,7 @@
       <thead>
         <tr>
           <th class="w-10"><span class="sr-only">{"_MOD"|lang}</span></th>
-          <th>{"_DATE"|lang}</th>
+          <th class="hidden sm:table-cell">{"_DATE"|lang}</th>
           <th>{"_PLAYER"|lang}</th>
           <th class="hidden lg:table-cell">{"_ADMIN"|lang}</th>
           <th class="hidden md:table-cell">{"_REASON"|lang}</th>
@@ -51,11 +51,11 @@
         <tbody x-data="{ open: false }" class="border-b border-zinc-100 last:border-0 dark:border-zinc-800/70">
           <tr class="cursor-pointer" x-on:click="open = !open">
             <td><img src="{$ban.mod|gameicon}" alt="{$ban.mod}" title="{if $ban.website}{"_WEB"|lang}{else}{$ban.mod}{/if}" class="size-5 pixel"></td>
-            <td class="whitespace-nowrap tabular-nums muted">{$ban.created|datetime:'date'}</td>
+            <td class="hidden whitespace-nowrap tabular-nums muted sm:table-cell">{$ban.created|datetime:'date'}</td>
             <td>
               <div class="flex items-center gap-2">
                 <img src="{$ban.cc|flag}" alt="{$ban.cc}" title="{$ban.cn}" class="h-3 w-4 shrink-0 pixel">
-                <span class="font-medium text-zinc-900 dark:text-white">{$ban.player_nick}</span>
+                <span class="max-w-[11rem] truncate font-medium text-zinc-900 sm:max-w-none dark:text-white">{$ban.player_nick}</span>
                 {if $ban.previous > 0}<span class="badge badge-amber" title="{"_TOTALEXPBANS"|lang}">+{$ban.previous}</span>{/if}
               </div>
             </td>
