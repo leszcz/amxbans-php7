@@ -2,6 +2,9 @@
 #
 #   git tag -a v7.0.1 -m "AMXBans 7.0.1" && git push origin v7.0.1
 #
+# or manually: Actions → Release → Run workflow (creates the tag v<AMXB_VERSION>
+# on the selected branch).
+#
 # The tag must match AMXB_VERSION in include/bootstrap.php. The release gets the
 # production package (amxbans-<version>.zip, ready for FTP upload) with a SHA-256
 # checksum, and the notes of the matching "## <version>" section of CHANGELOG.md.
@@ -11,6 +14,7 @@ name: Release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -24,13 +28,22 @@ jobs:
       - name: Check version
         id: version
         run: |
-          tag="${GITHUB_REF_NAME#v}"
           app=$(sed -n "s/.*define('AMXB_VERSION', '\([^']*\)').*/\1/p" include/bootstrap.php)
-          if [ "$tag" != "$app" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match AMXB_VERSION $app in include/bootstrap.php"
-            exit 1
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            tag="v$app"
+            if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null; then
+              echo "::error::Tag $tag already exists - bump AMXB_VERSION first."
+              exit 1
+            fi
+          else
+            tag="$GITHUB_REF_NAME"
+            if [ "${tag#v}" != "$app" ]; then
+              echo "::error::Tag $tag does not match AMXB_VERSION $app in include/bootstrap.php"
+              exit 1
+            fi
           fi
           echo "version=$app" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Build package
         run: |
@@ -58,8 +71,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           v="${{ steps.version.outputs.version }}"
-          gh release create "$GITHUB_REF_NAME" \
+          tag="${{ steps.version.outputs.tag }}"
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then
+            target=(--target "$GITHUB_SHA")      # gh creates the tag on this commit
+          else
+            target=(--verify-tag)                # the pushed tag must exist
+          fi
+          gh release create "$tag" \
             "dist/amxbans-$v.zip" "dist/amxbans-$v.zip.sha256" \
             --title "AMXBans $v" \
             --notes-file dist/notes.md \
-            --verify-tag
+            "${target[@]}"

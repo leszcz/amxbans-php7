@@ -49,7 +49,7 @@ Na serwerze musi być dostępny `rsync` (większość hostingów z SSH go ma).
 
 1. Zmień `AMXB_VERSION` w `include/bootstrap.php` (i `setup.php`), dopisz sekcję `## X.Y.Z – data` w `CHANGELOG.md`.
 2. Zmerguj do `main`.
-3. Utwórz tag na `main` i wypchnij go:
+3. Utwórz tag na `main` i wypchnij go (albo: *Actions → Release → Run workflow* na `main` – workflow sam utworzy tag `v<AMXB_VERSION>`):
 
 ```bash
 git checkout main && git pull
