@@ -1,159 +1,66 @@
 <?php
-session_start();
-if (!$_SESSION["loggedin"]) {
-    header("Location:index.php");
-    exit;
+declare(strict_types=1);
+
+/* Permission levels (_levels). Every web admin has exactly one level. */
+
+switch (action()) {
+    case 'add':
+        $next = (int)Database::value('SELECT COALESCE(MAX(`level`), 0) + 1 FROM ' . Database::table('levels'));
+        Database::insert('levels', ['level' => $next]);
+        log_to_db('User Level config', "Added level $next");
+        flash('success', '_LEVELADDED');
+        redirect_back();
+
+    case 'save':
+        $level = input_int('level');
+        $data = [];
+        foreach (Auth::PERMISSIONS as $perm) {
+            $value = input($perm, 'no');
+            $allowed = in_array($perm, Auth::OWN_PERMISSIONS, true) ? ['yes', 'no', 'own'] : ['yes', 'no'];
+            $data[$perm] = in_array($value, $allowed, true) ? $value : 'no';
+        }
+        if ($level === (int)Auth::user()['level'] && $data['permissions_edit'] !== 'yes') {
+            flash('error', '_CANNOT_REMOVE_OWN_PERMISSION');
+            redirect_back();
+        }
+        Database::update('levels', $data, ['level' => $level]);
+        log_to_db('User Level config', "Edited level $level");
+        flash('success', '_LEVELSAVED');
+        redirect_back();
+
+    case 'delete':
+        $level = input_int('level');
+        $users = (int)Database::value('SELECT COUNT(*) FROM ' . Database::table('webadmins') . ' WHERE `level` = :l', ['l' => $level]);
+        if ($users > 0) {
+            flash('error', '_LEVELDELFAILED');
+            redirect_back();
+        }
+        Database::delete('levels', ['level' => $level]);
+        log_to_db('User Level config', "Deleted level $level");
+        flash('success', '_LEVELDELETED');
+        redirect_back();
 }
 
-$admin_site = "ul";
-$title2 = "_TITLEUSERLEVEL";
+$levels = Database::all(
+    'SELECT l.*, (SELECT COUNT(*) FROM ' . Database::table('webadmins') . ' w WHERE w.`level` = l.`level`) AS users
+       FROM ' . Database::table('levels') . ' l ORDER BY l.`level`'
+);
+$labels = [
+    'bans_add' => ['_BANS', '_ADD'], 'bans_edit' => ['_BANS', '_EDIT'], 'bans_delete' => ['_BANS', '_DELETE'],
+    'bans_unban' => ['_BANS', '_LEVELUNBAN'], 'bans_import' => ['_BANS', '_LEVELIMPORT'], 'bans_export' => ['_BANS', '_LEVELEXPORT'],
+    'amxadmins_view' => ['_AMXADMINS', '_LEVELVIEW'], 'amxadmins_edit' => ['_AMXADMINS', '_EDIT'],
+    'webadmins_view' => ['_WEBADMINS', '_LEVELVIEW'], 'webadmins_edit' => ['_WEBADMINS', '_EDIT'],
+    'websettings_view' => ['_WEBSETTINGS', '_LEVELVIEW'], 'websettings_edit' => ['_WEBSETTINGS', '_EDIT'],
+    'permissions_edit' => ['_PERM', '_EDIT'], 'prune_db' => ['_OTHER', '_DBPRUNE'],
+    'servers_edit' => ['_SERVER', '_EDIT'], 'ip_view' => ['_OTHER', '_VIEWIP'],
+];
 
-// CSRF protection: Verify token
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        die('CSRF token mismatch. Possible CSRF attack.');
-    }
+foreach ($labels as $perm => &$label) {
+    $label[] = in_array($perm, Auth::OWN_PERMISSIONS, true) ? ['yes', 'own', 'no'] : ['yes', 'no'];
 }
+unset($label);
 
-// Generate a CSRF token and store it in session
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); // Create a unique CSRF token
-}
-
-// Secure handling of POST data
-function get_post($key, $default = null) {
-    return isset($_POST[$key]) ? htmlspecialchars(trim($_POST[$key]), ENT_QUOTES, 'UTF-8') : $default;
-}
-
-// Create a PDO connection
-$pdo = getPDO();
-
-// Check if a level ID is provided
-$lid = isset($_POST["lid"]) && is_numeric($_POST["lid"]) ? (int)$_POST["lid"] : "";
-
-// Add a new user level
-if (isset($_POST["new"])) {
-    $stmt = $pdo->query("SELECT COUNT(level) FROM `" . $config->db_prefix . "_levels`");
-    $level_count = $stmt->fetchColumn(); // Get the count of levels
-
-    $stmt = $pdo->prepare("INSERT INTO `" . $config->db_prefix . "_levels` (`level`) VALUES (:level)");
-    $stmt->execute(['level' => $level_count + 1]);
-
-    $user_msg = "_LEVELADDED";
-    log_to_db("User Level config", "Added new level " . ($level_count + 1));
-}
-
-// Delete a user level
-if (isset($_POST["del"])) {
-    // Check if any users are using this level
-    $stmt = $pdo->prepare("SELECT COUNT(id) FROM `" . $config->db_prefix . "_webadmins` WHERE `level` = :lid");
-    $stmt->execute(['lid' => $lid]);
-    $count = $stmt->fetchColumn();
-
-    if ($count > 0) {
-        $user_msg = "_LEVELDELFAILED";
-    } else {
-        // Delete the level if no users are assigned
-        $stmt = $pdo->prepare("DELETE FROM `" . $config->db_prefix . "_levels` WHERE `level` = :lid LIMIT 1");
-        $stmt->execute(['lid' => $lid]);
-
-        $user_msg = "_LEVELDELETED";
-        log_to_db("User Level config", "Deleted: level " . $lid);
-    }
-}
-
-// Save the user level settings
-if (isset($_POST["save"])) {
-    $bans_add = get_post("bans_add", 'no');
-    $bans_edit = get_post("bans_edit", 'no');
-    $bans_delete = get_post("bans_delete", 'no');
-    $bans_unban = get_post("bans_unban", 'no');
-    $bans_import = get_post("bans_import", 'no');
-    $bans_export = get_post("bans_export", 'no');
-    $amxadmins_view = get_post("amxadmins_view", 'no');
-    $amxadmins_edit = get_post("amxadmins_edit", 'no');
-    $webadmins_view = get_post("webadmins_view", 'no');
-    $webadmins_edit = get_post("webadmins_edit", 'no');
-    $websettings_view = get_post("websettings_view", 'no');
-    $websettings_edit = get_post("websettings_edit", 'no');
-    $permissions_edit = get_post("permissions_edit", 'no');
-    $prune_db = get_post("prune_db", 'no');
-    $servers_edit = get_post("servers_edit", 'no');
-    $ip_view = get_post("ip_view", 'no');
-
-    $query = "UPDATE `" . $config->db_prefix . "_levels` SET 
-        `bans_add` = :bans_add,
-        `bans_edit` = :bans_edit,
-        `bans_delete` = :bans_delete,
-        `bans_unban` = :bans_unban,
-        `bans_import` = :bans_import,
-        `bans_export` = :bans_export,
-        `amxadmins_view` = :amxadmins_view,
-        `amxadmins_edit` = :amxadmins_edit,
-        `webadmins_view` = :webadmins_view,
-        `webadmins_edit` = :webadmins_edit,
-        `websettings_view` = :websettings_view,
-        `websettings_edit` = :websettings_edit,
-        `permissions_edit` = :permissions_edit,
-        `prune_db` = :prune_db,
-        `servers_edit` = :servers_edit,
-        `ip_view` = :ip_view
-        WHERE `level` = :lid LIMIT 1";
-
-    $stmt = $pdo->prepare($query);
-    $stmt->execute([
-        'bans_add' => $bans_add,
-        'bans_edit' => $bans_edit,
-        'bans_delete' => $bans_delete,
-        'bans_unban' => $bans_unban,
-        'bans_import' => $bans_import,
-        'bans_export' => $bans_export,
-        'amxadmins_view' => $amxadmins_view,
-        'amxadmins_edit' => $amxadmins_edit,
-        'webadmins_view' => $webadmins_view,
-        'webadmins_edit' => $webadmins_edit,
-        'websettings_view' => $websettings_view,
-        'websettings_edit' => $websettings_edit,
-        'permissions_edit' => $permissions_edit,
-        'prune_db' => $prune_db,
-        'servers_edit' => $servers_edit,
-        'ip_view' => $ip_view,
-        'lid' => $lid
-    ]);
-
-    $user_msg = "_LEVELSAVED";
-
-    // Log out all users with this level
-    $stmt = $pdo->prepare("UPDATE `" . $config->db_prefix . "_webadmins` SET `logcode` = NULL WHERE `level` = :lid");
-    $stmt->execute(['lid' => $lid]);
-
-    // If the current user has the same level, log them out as well
-    if ($_SESSION["level"] == $lid) {
-        session_destroy();
-        header("Location: logout.php");
-        exit;
-    }
-
-    log_to_db("User Level config", "Edited: level " . $lid);
-}
-
-// Fetch all user levels from the database
-$stmt = $pdo->query("SELECT * FROM `" . $config->db_prefix . "_levels` ORDER BY `level`");
-$levels = [];
-$choose1 = ["yes", "no"];
-$output1 = ["_YES", "_NO"];
-$choose2 = ["yes", "no", "own"];
-$output2 = ["_YES", "_NO", "_OWN"];
-
-while ($result = $stmt->fetch(PDO::FETCH_ASSOC)) {
-    $levels[] = $result;
-}
-
-// Assign variables to Smarty template
-$smarty->assign("levels", $levels);
-$smarty->assign("choose1", $choose1);
-$smarty->assign("choose2", $choose2);
-$smarty->assign("output1", $output1);
-$smarty->assign("output2", $output2);
-
-?>
+$view->page('admin/levels.tpl', [
+    'levels' => $levels,
+    'labels' => $labels,
+], '_TITLEUSERLEVEL');

@@ -1,89 +1,45 @@
 <?php
-session_start();
+declare(strict_types=1);
 
-if (!$_SESSION["loggedin"]) {
-    header("Location: index.php");
-    exit;
-}
-if (!has_access("amxadmins_view")) {
-    header("Location: index.php");
-    exit;
-}
+/* Which AMX Mod X admins are active on which server (with optional custom flags). */
 
-$admin_site = "sa";
-$title2 = "_TITLESERVERADMINS";
+$servers = servers_all();
+$sid = query_int('server', (int)($servers[0]['id'] ?? 0));
+$server = $sid ? server_find($sid) : null;
 
-$pdo = getPDO();  // Zakładamy, że getPDO() zwraca obiekt PDO
-
-$sid = isset($_POST["sid"]) ? (int)$_POST["sid"] : "";
-
-$reasons_choose = "";
-$reasons_values = "";
-
-// Zapisz zmiany
-if (isset($_POST["save"])) {
-    $aktiv = $_POST["aktiv_new"];
-    $custom_flags = $_POST["custom_flags"];
-    $use_static_bantime = $_POST["use_static_bantime"];
-    $user_id = $_POST["hid_uid"];
-
-    // Usuń wszystkich administratorów dla danego serwera
-    $stmt = $pdo->prepare("DELETE FROM `{$config->db_prefix}_admins_servers` WHERE `server_id` = :sid");
-    $stmt->execute([':sid' => $sid]);
-
-    // Przeszukaj nowe ustawienia
-    if (is_array($aktiv)) {
-        foreach ($aktiv as $k => $aid) {
-            if ((int)$aid) {
-                $cflags = sql_safe(trim($custom_flags[$k]));
-                $sban = sql_safe(trim($use_static_bantime[$k]));
-                $uid = sql_safe(trim($user_id[$k]));
-
-                // Zapisz administratora do bazy danych
-                $stmt = $pdo->prepare("INSERT INTO `{$config->db_prefix}_admins_servers` 
-                    (`admin_id`, `server_id`, `custom_flags`, `use_static_bantime`) 
-                    VALUES (:aid, :sid, :custom_flags, :use_static_bantime)");
-
-                $stmt->execute([
-                    ':aid' => (int)$aid,
-                    ':sid' => $sid,
-                    ':custom_flags' => $cflags,
-                    ':use_static_bantime' => $sban
-                ]);
+if (action() === 'save' && $server) {
+    Auth::require('amxadmins_edit');
+    $active = array_map('intval', input_array('active'));
+    $flags = input_array('custom_flags');
+    $static = input_array('static_bantime');
+    $validAdmins = array_map('intval', Database::column('SELECT `id` FROM ' . Database::table('amxadmins')));
+    Database::transaction(function () use ($sid, $active, $flags, $static, $validAdmins) {
+        Database::delete('admins_servers', ['server_id' => $sid]);
+        foreach (array_unique($active) as $aid) {
+            if (!in_array($aid, $validAdmins, true)) {
+                continue;
             }
+            $custom = preg_replace('/[^a-uz]/', '', (string)($flags[$aid] ?? ''));
+            Database::insert('admins_servers', [
+                'admin_id' => $aid, 'server_id' => $sid, 'custom_flags' => mb_substr($custom, 0, 32),
+                'use_static_bantime' => ($static[$aid] ?? 'yes') === 'no' ? 'no' : 'yes',
+            ]);
         }
-    }
-
-    $user_msg = '_SADMINSAVED';
-    $smarty->assign("msg", $user_msg);
-    log_to_db("Server Admin config", "Edited admins on server: " . sql_safe($_POST["sidname"]));
+    });
+    log_to_db('Server Admin config', 'Edited admins on server: ' . $server['hostname']);
+    flash('success', '_SADMINSAVED');
+    redirect_back();
 }
 
-// Edytuj administratorów
-if (isset($_POST["admins_edit"])) {
-    $editadmins = [
-        "sidname" => html_safe($_POST["sidname"]),
-        "sid" => $sid
-    ];
-    $smarty->assign("editadmins", $editadmins);
-
-    $admins = sql_get_amxadmins_server($sid);  // Pobierz administratorów dla danego serwera
-    $smarty->assign("admins", $admins);
+$admins = [];
+if ($server) {
+    $admins = Database::all(
+        'SELECT a.`id`, a.`username`, a.`nickname`, a.`access`, a.`steamid`, s.`custom_flags`, s.`use_static_bantime`, s.`admin_id` IS NOT NULL AS active
+           FROM ' . Database::table('amxadmins') . ' a
+           LEFT JOIN ' . Database::table('admins_servers') . ' s ON s.`admin_id` = a.`id` AND s.`server_id` = :sid
+          ORDER BY active DESC, a.`nickname`',
+        ['sid' => $sid]
+    );
 }
 
-// Pobierz listę serwerów
-$servers = sql_get_server();
-
-$delay_choose = [1, 2, 5, 10];
-$yesno_choose = ["yes", "no"];
-$yesno_output = ["_YES", "_NO"];
-$onetwo_choose = [1, 0];
-
-$smarty->assign("onetwo_choose", $onetwo_choose);
-$smarty->assign("delay_choose", $delay_choose);
-$smarty->assign("yesno_choose", $yesno_choose);
-$smarty->assign("yesno_output", $yesno_output);
-$smarty->assign("reasons_choose", $reasons_choose);
-$smarty->assign("reasons_values", $reasons_values);
-$smarty->assign("servers", $servers);
-?>
+$view->page('admin/server_admins.tpl', ['servers' => $servers, 'server' => $server, 'admins' => $admins], '_TITLESERVERADMINS');

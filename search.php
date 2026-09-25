@@ -1,166 +1,101 @@
 <?php
-session_start();
+declare(strict_types=1);
 
-require_once("include/config.inc.php");
-require_once("include/access.inc.php");
-require_once("include/menu.inc.php");
-require_once("include/steam.inc.php");
-require_once("include/sql.inc.php");
-require_once("include/logfunc.inc.php");
-require_once("include/functions.inc.php");
+require __DIR__ . '/include/bootstrap.php';
 
-// Template generieren
-$title = "_TITLESEARCH";
-$smarty = new dynamicPage;
-  $smarty->setTemplateDir($config->templatedir);
+/*
+ * Ban search. Uses GET so results can be bookmarked; every criterion is
+ * bound as a parameter (no user input is concatenated into SQL).
+ */
 
-//get all admins ever
-//$admins=sql_get_search_amxadmins();
-sql_get_search_amxadmins($amxadmins,$admins);
+$criteria = [
+    'nick'    => mb_substr(query('nick'), 0, 64),
+    'steamid' => mb_substr(query('steamid'), 0, 35),
+    'ip'      => mb_substr(query('ip'), 0, 45),
+    'reason'  => mb_substr(query('reason'), 0, 64),
+    'date'    => query('date'),
+    'admin'   => mb_substr(query('admin'), 0, 64),
+    'server'  => mb_substr(query('server'), 0, 100),
+    'times'   => query_int('times'),
+];
 
-//get all servers ever
-$servers=sql_get_search_servers();
-//get all reasons ever
-//removed in 6.0beta4, made problems with big dbs
-//$reasons=sql_get_search_reasons();
+$where = [];
+$params = [];
+$like = fn(string $v) => '%' . addcslashes($v, '%_\\') . '%';
 
-$msg = "";
-
-if ((isset($_POST['nick'])) || (isset($_POST['steamid'])) || (isset($_POST['ip'])) || (isset($_POST['reason'])) || (isset($_POST['date'])) || (isset($_POST['timesbanned'])) || (isset($_POST['admin'])) || (isset($_POST['server']))) {
-  
-  if(isset($_POST["nick"])) {
-    $nick=trim($_POST["nick"]);
-    if(validate_value($nick,"name",$msg,2,31,"USERNAME")) {
-      $search_query="`player_nick` LIKE '%".sql_safe($nick)."%'";
-    } #else { $msg="_INVALIDNAME"; }
-  }
-  
-  if(isset($_POST["steamid"])) {
-    $steamid=trim($_POST["steamid"]);
-    if(validate_value($steamid,"name",$msg,2,35,"STEAM")) { //validate only for length
-      $search_query="`player_id` LIKE '%".sql_safe($steamid)."%'";
-    } #else { $msg="_INVALIDSTEAMID"; }
-  }
-  
-  if(isset($_POST["ip"])) {
-    $ip=trim($_POST["ip"]);
-    if(validate_value($ip,"name",$msg,2,15,"IP")) { //validate only for length
-      $search_query="`player_ip` LIKE '%".sql_safe($ip)."%'";
-    } #else { $msg="_INVALIDIP"; }
-  }
-  if(isset($_POST["reason"])) {
-    $reason=trim($_POST["reason"]);
-    if(validate_value($reason,"name",$msg,2,15,"REASON")) { //validate only for length
-      $search_query="`ban_reason` LIKE '%".sql_safe($reason)."%'";
-    } #else { $msg="_INVALIDREASON"; }
-  }
-  //if(isset($_POST["reason"]) && $_POST["reason"]<>"") $search_query="`ban_reason` LIKE '%".sql_safe($_POST["reason"])."%'";
-  
-  if(isset($_POST["date"]) && $_POST["date"]<>"") {
-    $date    = substr_replace($_POST['date'], '', 2, 1);
-    $date    = substr_replace($date, '', 4, 1);
-    $search_query="FROM_UNIXTIME(ban_created,'%d%m%Y') LIKE '".sql_safe($date)."'";
-  }
-  
-  if(isset($_POST["admin"]) && $_POST["admin"]<>"") $search_query="`admin_id`='".sql_safe($_POST["admin"])."'";
-  
-  if(isset($_POST["server"]) && $_POST["server"]<>"") {
-    if($_POST["server"]=="website") {
-      $search_query="`server_name`='".sql_safe($_POST["server"])."'";
-    } else {  
-      $search_query="`server_ip`='".sql_safe($_POST["server"])."'";
+if ($criteria['nick'] !== '') {
+    $where[] = 'ba.`player_nick` LIKE :nick';
+    $params['nick'] = $like($criteria['nick']);
+}
+if ($criteria['steamid'] !== '') {
+    $where[] = 'ba.`player_id` LIKE :steamid';
+    $params['steamid'] = $like($criteria['steamid']);
+}
+if ($criteria['ip'] !== '' && Auth::can('ip_view')) {
+    $where[] = 'ba.`player_ip` LIKE :ip';
+    $params['ip'] = $like($criteria['ip']);
+}
+if ($criteria['reason'] !== '') {
+    $where[] = 'ba.`ban_reason` LIKE :reason';
+    $params['reason'] = $like($criteria['reason']);
+}
+if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $criteria['date'])) {
+    $start = strtotime($criteria['date'] . ' 00:00:00');
+    if ($start !== false) {
+        $where[] = 'ba.`ban_created` BETWEEN :d1 AND :d2';
+        $params['d1'] = $start;
+        $params['d2'] = $start + 86399;
     }
-  }
-  $count_aktiv=0;
-  $count_exp=0;
-  if($search_query) {
-    $ban_list_aktiv  = sql_get_search_bans($search_query,1,$count_aktiv);
-    $ban_list_exp  = sql_get_search_bans($search_query,0,$count_exp);
-    $count_aktiv  = sizeof($ban_list_aktiv);
-    $count_exp    = sizeof($ban_list_exp);
-  }
-  
-  if(isset($_POST["timesbanned"]) && is_numeric($_POST["timesbanned"])) {
-    $pdo = getPDO();
-    $query = $pdo->prepare("SELECT *,COUNT(*) as bancount FROM ".$config->db_prefix."_bans GROUP BY player_id HAVING COUNT(*) >= :timesbanned ORDER BY ban_created DESC,player_id");
-    $query->execute([
-      'timesbanned' => (int) $_POST['timesbanned']
-    ]);
-  
-    while($result = $query->fetch(PDO::FETCH_ASSOC)) {
-      if(!empty($result->player_id)) {
-        $steamid = html_safe($result->player_id);
-        $steamcomid = GetFriendId($steamid);
-      }
-      //search for a activ ban and make it as ref
-      $query2 = $pdo->query("SELECT * FROM ".$config->db_prefix."_bans WHERE (`player_id`= :player_id AND `ban_type` = 'S') OR (`player_ip`= :player_ip AND `ban_type` = 'SI') AND `expired`=0 ORDER BY ban_created DESC LIMIT 1");
-      $query2->execute([
-        'player_id' => $result->player_id,
-        'player_ip' => $result->player_ip
-      ]);
-      if($query2->rowCount()) {
-        $result2 = $query2->fetch(PDO::FETCH_ASSOC);
-        $result2->bancount=$result->bancount;
-        $result = $result2;
-      }
-      //make array
-      $ban_row = [
-        "bid"       => $result->bid,
-        "player_ip"   => $result->player_ip,
-        "player_id"   => $result->player_id,
-        "player_comid"  => $steamcomid,
-        "player_nick"   => html_safe($result->player_nick),
-        "admin_ip"     => $result->admin_ip,
-        "admin_id"     => $result->admin_id,
-        "admin_nick"   => html_safe($result->admin_nick),
-        "ban_type"     => $result->ban_type,
-        "ban_reason"   => html_safe($result->ban_reason),
-        "ban_created"   => $result->ban_created,
-        "ban_length"   => $result->ban_length,
-        "ban_end"    => ($result->ban_created + ($result->ban_length * 60)),
-        "server_ip"   => $result->server_ip,
-        "server_name"   => html_safe($result->server_name),
-        "bancount"    => $result->bancount
-      ];
-      
-      $count++;
-      if($result->expired==0) {
-        $ban_list_aktiv[] = $ban_row;
-        $count_aktiv++;
-      } else {
-        $ban_list_exp[] = $ban_row;
-        $count_exp++;
-      }
+} else {
+    $criteria['date'] = '';
+}
+if ($criteria['admin'] !== '') {
+    $where[] = '(ba.`admin_id` = :admin1 OR ba.`admin_nick` = :admin2)';
+    $params['admin1'] = $params['admin2'] = $criteria['admin'];
+}
+if ($criteria['server'] !== '') {
+    if ($criteria['server'] === 'website') {
+        $where[] = 'ba.`server_name` = \'website\'';
+    } else {
+        $where[] = 'ba.`server_ip` = :server';
+        $params['server'] = $criteria['server'];
     }
-    
-  }
-  //echo "DEBUG: ".$count_aktiv."/".$count_exp.":".$search_query;
-  $smarty->assign("ban_list_aktiv",$ban_list_aktiv);
-  $smarty->assign("ban_list_aktiv_count",$count_aktiv);
-  $smarty->assign("ban_list_exp",$ban_list_exp);
-  $smarty->assign("ban_list_exp_count",$count_exp);
-  $smarty->assign("search_done",1);
+}
+if ($criteria['times'] > 1) {
+    $where[] = 'ba.`player_id` IN (SELECT `player_id` FROM ' . Database::table('bans') . ' WHERE `player_id` <> \'\' GROUP BY `player_id` HAVING COUNT(*) >= :times)';
+    $params['times'] = $criteria['times'];
 }
 
-$smarty->assign("amxadmins",$amxadmins);
-$smarty->assign("admins",$admins);
-$smarty->assign("servers",$servers);
-//$smarty->assign("reasons",$reasons);
-$smarty->assign("meta","");
-$smarty->assign("title",$title);
-$smarty->assign("version_web",$config->v_web);
-// amxbans.css available in design? if not, take default one.
-if(file_exists("templates/".$config->design."/main_header.tpl")) {
-  $smarty->assign("design",$config->design);
+$searched = $where !== [];
+$results = ['active' => [], 'expired' => []];
+if ($searched) {
+    $rows = Database::all(
+        ban_select_sql() . ' WHERE ' . implode(' AND ', $where) . ' ORDER BY ba.`ban_created` DESC LIMIT 500',
+        $params
+    );
+    foreach ($rows as $row) {
+        $ban = ban_present($row);
+        $results[(int)$row['expired'] === 0 ? 'active' : 'expired'][] = $ban;
+    }
 }
-$smarty->assign("dir",$config->document_root);
-$smarty->assign("this",$_SERVER['PHP_SELF']);
-$smarty->assign("menu",$menu);
-$smarty->assign("msg",$msg);
-$smarty->assign("banner",$config->banner);
-$smarty->assign("banner_url",$config->banner_url);
 
-$smarty->display('main_header.tpl');
-$smarty->display('search.tpl');
-$smarty->display('main_footer.tpl');
-?>
+// Options for the select boxes
+$admins = Database::all(
+    'SELECT ba.`admin_id`, MAX(ba.`admin_nick`) AS admin_nick, MAX(aa.`nickname`) AS nickname
+       FROM ' . Database::table('bans') . ' ba
+       LEFT JOIN ' . Database::table('amxadmins') . ' aa ON aa.`steamid` = ba.`admin_id`
+      WHERE ba.`admin_id` <> \'\'
+      GROUP BY ba.`admin_id` ORDER BY admin_nick'
+);
+$servers = Database::all(
+    'SELECT `server_ip`, MAX(`server_name`) AS server_name FROM ' . Database::table('bans') . '
+      WHERE `server_name` <> \'website\' AND `server_ip` <> \'\' GROUP BY `server_ip` ORDER BY server_name'
+);
+
+$view->page('search.tpl', [
+    'criteria' => $criteria,
+    'searched' => $searched,
+    'results'  => $results,
+    'admins'   => $admins,
+    'servers'  => $servers,
+], '_TITLESEARCH');

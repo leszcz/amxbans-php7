@@ -1,0 +1,29 @@
+{
+  "name": "amxbans-php7",
+  "version": "1.0.0",
+  "description": "Frontend build for AMXBans (Tailwind CSS + Alpine.js)",
+  "scripts": {
+    "build": "npm run build:css && npm run build:js && npm run icons",
+    "build:css": "tailwindcss -i assets/src/app.css -o assets/dist/app.css --minify",
+    "watch:css": "tailwindcss -i assets/src/app.css -o assets/dist/app.css --watch",
+    "build:js": "node build/copy-js.mjs",
+    "icons": "node build/icons.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leszcz/amxbans-php7.git"
+  },
+  "license": "CC-BY-NC-SA-2.0",
+  "bugs": {
+    "url": "https://github.com/leszcz/amxbans-php7/issues"
+  },
+  "homepage": "https://github.com/leszcz/amxbans-php7#readme",
+  "devDependencies": {
+    "@alpinejs/csp": "^3.17.4",
+    "@alpinejs/focus": "^3.17.4",
+    "@tailwindcss/cli": "^4.3.3",
+    "heroicons": "^2.2.0",
+    "tailwindcss": "^4.3.3"
+  },
+  "private": true
+}

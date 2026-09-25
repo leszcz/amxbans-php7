@@ -1,135 +1,63 @@
 <?php
-session_start();
-if (!$_SESSION["loggedin"]) {
-    header("Location:index.php");
-    exit;
-}
-if (!has_access("amxadmins_view")) {
-    header("Location:index.php");
-    exit;
-}
+declare(strict_types=1);
 
-$admin_site = "um";
-$title2 = "_TITLEUSERMENU";
+/* Public navigation menu (_usermenu). "url" is shown to guests, "url2" to logged in admins. */
 
-global $config;
-
-// Function to change the menu position using PDO
-function menu_change_pos($pdo, $mid, $pos, $pos_new) {
-    global $config;
-    
-    // Temporarily set the menu item to position 0
-    $query = $pdo->prepare("UPDATE `".$config->db_prefix."_usermenu` SET `pos`=0 WHERE `id`=:mid LIMIT 1");
-    $query->execute(['mid' => $mid]);
-    
-    if ($pos == $pos_new - 1 || $pos == $pos_new + 1) {
-        // Swap positions (one step up or down)
-        $sql = "UPDATE `".$config->db_prefix."_usermenu` SET `pos`=`pos`" . (($pos_new < $pos) ? "+" : "-") . "1 WHERE `pos`=:pos_new LIMIT 1";
-        $query = $pdo->prepare($sql);
-        $query->execute(['pos_new' => $pos_new]);
-    } else {
-        // Move to a different position (multiple steps)
-        $sql = "UPDATE `".$config->db_prefix."_usermenu` SET `pos`=`pos`" . (($pos_new < $pos) ? "+" : "-") . "1 
-                WHERE `pos`".(($pos_new < $pos) ? "<" : ">").":pos AND `pos`".(($pos_new < $pos) ? ">=" : "<=").":pos_new";
-        $query = $pdo->prepare($sql);
-        $query->execute(['pos' => $pos, 'pos_new' => $pos_new]);
+$readItem = function (): array {
+    $data = [
+        'activ'     => input_bool('activ') ? 1 : 0,
+        'lang_key'  => mb_substr(input('lang_key'), 0, 64),
+        'url'       => mb_substr(input('url'), 0, 64),
+        'lang_key2' => mb_substr(input('lang_key2'), 0, 64),
+        'url2'      => mb_substr(input('url2'), 0, 64),
+    ];
+    foreach (['url', 'url2'] as $k) {
+        if ($data[$k] !== '' && safe_url($data[$k]) !== $data[$k]) {
+            flash('error', '_URLINVALID');
+            redirect_back();
+        }
     }
+    return $data;
+};
 
-    // Set new position for the updated menu item
-    $query = $pdo->prepare("UPDATE `".$config->db_prefix."_usermenu` SET `pos`=:pos_new WHERE `id`=:mid LIMIT 1");
-    $query->execute(['pos_new' => $pos_new, 'mid' => $mid]);
-
-    // Log the position change
-    // log_to_db("Usermenu config", "Changed menu: position " . $pos . " -> " . $pos_new);
+if (action() !== '') {
+    Auth::require('websettings_edit');
+}
+switch (action()) {
+    case 'add':
+        $data = $readItem();
+        $data['pos'] = (int)Database::value('SELECT COALESCE(MAX(`pos`), 0) + 1 FROM ' . Database::table('usermenu'));
+        Database::insert('usermenu', $data);
+        log_to_db('Usermenu config', 'Added menu item');
+        flash('success', '_USERMENUADDED');
+        redirect_back();
+    case 'save':
+        Database::update('usermenu', $readItem(), ['id' => input_int('mid')]);
+        log_to_db('Usermenu config', 'Edited menu item #' . input_int('mid'));
+        flash('success', '_USERMENUSAVED');
+        redirect_back();
+    case 'delete':
+        Database::delete('usermenu', ['id' => input_int('mid')]);
+        log_to_db('Usermenu config', 'Deleted menu item #' . input_int('mid'));
+        flash('success', '_USERMENUDELETED');
+        redirect_back();
+    case 'up':
+    case 'down':
+        $items = Database::all('SELECT `id` FROM ' . Database::table('usermenu') . ' ORDER BY `pos`, `id`');
+        $ids = array_map('intval', array_column($items, 'id'));
+        $i = array_search(input_int('mid'), $ids, true);
+        $j = $i === false ? false : (action() === 'up' ? $i - 1 : $i + 1);
+        if ($j !== false && isset($ids[$j])) {
+            [$ids[$i], $ids[$j]] = [$ids[$j], $ids[$i]];
+            Database::transaction(function () use ($ids) {
+                foreach ($ids as $pos => $id) {
+                    Database::update('usermenu', ['pos' => $pos + 1], ['id' => $id]);
+                }
+            });
+        }
+        redirect_back();
 }
 
-if (isset($_POST["mid"])) {
-    $mid = (int)$_POST["mid"];
-} else {
-    $mid = "";
-}
-
-// Create a PDO connection
-$pdo = getPDO();
-
-// Delete menu
-if (isset($_POST["del"])) {
-    if (!has_access("amxadmins_view")) {
-        header("Location:index.php");
-        exit;
-    }
-    $query = $pdo->prepare("DELETE FROM `".$config->db_prefix."_usermenu` WHERE `id`=:mid LIMIT 1");
-    $query->execute(['mid' => $mid]);
-    $user_msg = '_USERMENUDELETED';
-    log_to_db("Usermenu config", "Deleted menu: ID: " . $mid);
-}
-
-// Add new menu
-if (isset($_POST["new"])) {
-    if (!has_access("amxadmins_view")) {
-        header("Location:index.php");
-        exit;
-    }
-    $query = $pdo->prepare("INSERT INTO `".$config->db_prefix."_usermenu` (`pos`, `activ`, `url`, `lang_key`, `url2`, `lang_key2`) 
-              VALUES (:pos, 1, :url, :lang_key, :url2, :lang_key2)");
-    $query->execute([
-        'pos' => (int)$_POST["pos"],
-        'url' => $_POST["url"],
-        'lang_key' => $_POST["lang_key"],
-        'url2' => $_POST["url2"],
-        'lang_key2' => $_POST["lang_key2"]
-    ]);
-    $user_msg = '_USERMENUADDED';
-    log_to_db("Usermenu config", "Added new menu item");
-}
-
-// Change position using up/down buttons
-if (isset($_POST["pos_up_x"]) || isset($_POST["pos_dn_x"])) {
-    $pos = (int)$_POST["pos"];
-    $pos_new = $pos;
-    if (isset($_POST["pos_up_x"])) $pos_new--;
-    if (isset($_POST["pos_dn_x"])) $pos_new++;
-    
-    menu_change_pos($pdo, $mid, $pos, $pos_new);
-    
-    $user_msg = '_USERMENUPOSSAVED';
-}
-
-// Save menu changes
-if (isset($_POST["save"])) {
-    if (!has_access("amxadmins_view")) {
-        header("Location:index.php");
-        exit;
-    }
-
-    // Update menu item details
-    $query = $pdo->prepare("UPDATE `".$config->db_prefix."_usermenu` SET 
-          `activ`=:activ, 
-          `url`=:url, 
-          `lang_key`=:lang_key, 
-          `url2`=:url2, 
-          `lang_key2`=:lang_key2 
-          WHERE `id`=:mid LIMIT 1");
-    $query->execute([
-        'activ' => isset($_POST["activ"]) ? 1 : 0,
-        'url' => $_POST["url"],
-        'lang_key' => $_POST["lang_key"],
-        'url2' => $_POST["url2"],
-        'lang_key2' => $_POST["lang_key2"],
-        'mid' => $mid
-    ]);
-    $user_msg = '_USERMENUSAVED';
-    log_to_db("Usermenu config", "Edited menu: ID " . $mid);
-}
-
-// Get full menu
-$menu2 = sql_get_usermenu($count);
-
-// Activate menu changes
-include("include/menu.inc.php");
-
-$activ_choose = ["no", "yes"];
-$smarty->assign("activ_choose", $activ_choose);
-$smarty->assign("menu_count", $count);
-$smarty->assign("menu2", $menu2);
-?>
+$view->page('admin/usermenu.tpl', [
+    'items' => Database::all('SELECT * FROM ' . Database::table('usermenu') . ' ORDER BY `pos`, `id`'),
+], '_TITLEUSERMENU');

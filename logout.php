@@ -1,37 +1,10 @@
 <?php
-session_start();
+declare(strict_types=1);
 
-include("include/config.inc.php");
+require __DIR__ . '/include/bootstrap.php';
 
-$pdo = getPDO();
-
-// Unset the session cookie
-if (isset($_COOKIE[$config->cookie])) {
-    setcookie($config->cookie, '', time() - 3600, "/", $_SERVER['HTTP_HOST'], isset($_SERVER["HTTPS"]), true); // Use secure and HTTPOnly flags if HTTPS is used
+// Logging out is a POST with CSRF token (the header button); GET only redirects.
+if (is_post()) {
+    Auth::logout();
 }
-
-// Clear logcode from the database for the logged-in user
-if (isset($_SESSION["uid"])) {
-    $stmt = $pdo->prepare("UPDATE `" . $config->db_prefix . "_webadmins` SET `logcode` = NULL WHERE `id` = :uid");
-    $stmt->execute(['uid' => (int)$_SESSION["uid"]]);
-}
-
-// Clear all session variables
-session_unset();
-
-// Preserve language preference
-$lang_temp = isset($_SESSION["lang"]) ? $_SESSION["lang"] : null;
-
-// Destroy the session
-session_destroy();
-
-// Start a new session to maintain the language preference
-session_start();
-if ($lang_temp) {
-    $_SESSION["lang"] = $lang_temp;
-}
-
-// Redirect to the homepage
-header("Location:index.php");
-exit;
-?>
+redirect('index.php');

@@ -1,157 +1,56 @@
 <?php
-session_start();
-if (!$_SESSION["loggedin"]) {
-    header("Location:index.php");
-    exit;
-}
+declare(strict_types=1);
 
-if (!has_access("websettings_view")) {
-    header("Location:index.php");
-    exit;
-}
+/* Website settings (_webconfig). */
 
-$admin_site = "ms";
-$title2 = "_TITLESITE";
-
-$pdo = getPDO();
-
-// Searching for templates (designs)
 $designs = [];
-$d = opendir($config->path_root . "/templates/");
-while ($f = readdir($d)) {
-    if ($f === "." || $f === "..") {
-        continue;
-    }
-    if (is_dir($config->path_root . "/templates/" . $f)) {
-        $designs[$f] = $f;
-    }
+foreach (glob(AMXB_ROOT . '/templates/*/layout.tpl') ?: [] as $file) {
+    $designs[] = basename(dirname($file));
 }
-closedir($d);
-
-// Searching for banners
-$banners = ["" => "---"];
-$d = opendir($config->path_root . "/images/banner/");
-while ($f = readdir($d)) {
-    if ($f === "." || $f === ".." || is_dir($config->path_root . "/images/banner/" . $f)) {
-        continue;
-    }
-    if (is_file($config->path_root . "/images/banner/" . $f) && $f !== "index.php") {
-        $banners[$f] = $f;
-    }
+$banners = [];
+foreach (glob(AMXB_ROOT . '/images/banner/*.{png,jpg,jpeg,gif,webp}', GLOB_BRACE) ?: [] as $file) {
+    $banners[] = basename($file);
 }
-closedir($d);
+$startPages = ['ban_list.php', 'admin_list.php', 'search.php', 'view.php'];
 
-// Searching for start pages
-$start_pages = [];
-$forbidden_files = ["index.php", "login.php", "logout.php", "admin.php", "search.php", "setup.php", "motd.php"];
-$d = opendir($config->path_root . "/");
-while ($f = readdir($d)) {
-    if ($f === "." || $f === ".." || is_dir($config->path_root . "/" . $f)) {
-        continue;
-    }
-    if (is_file($f) && !in_array($f, $forbidden_files) && substr($f, -3) === "php") {
-        $start_pages[$f] = $f;
-    }
-}
-closedir($d);
-
-// Saving settings
-if (isset($_POST["save"])) {
-    if (!has_access("websettings_edit")) {
-        header("Location:index.php");
-        exit;
-    }
-
-    // Sanitize and prepare inputs
-    $cookie = htmlspecialchars($_POST["cookie"]);
-    $design = $_POST["design"] === "---" ? "" : htmlspecialchars($_POST["design"]);
-    $bans_per_page = (is_numeric($_POST["bans_per_page"]) && $_POST["bans_per_page"] > 1) ? (int)$_POST["bans_per_page"] : 10;
-    $banner = $_POST["banner"] === "---" ? "" : htmlspecialchars($_POST["banner"]);
-    $banner_url = htmlspecialchars(trim($_POST["banner_url"]));
-    $language = htmlspecialchars($_POST["language"]);
-    $start_page = htmlspecialchars($_POST["start_page"]);
-    $show_comment_count = (int)$_POST["show_comment_count"];
-    $show_demo_count = (int)$_POST["show_demo_count"];
-    $show_kick_count = (int)$_POST["show_kick_count"];
-    $use_demo = (int)$_POST["use_demo"];
-    $use_comment = (int)$_POST["use_comment"];
-    $demo_all = (int)$_POST["demo_all"];
-    $comment_all = (int)$_POST["comment_all"];
-    $use_capture = (int)$_POST["use_capture"];
-    $auto_prune = (int)$_POST["auto_prune"];
-    $max_offences = (is_numeric($_POST["max_offences"]) && $_POST["max_offences"] > 1) ? (int)$_POST["max_offences"] : 10;
-    $max_offences_reason = htmlspecialchars($_POST["max_offences_reason"] === "" ? "max offences reached" : $_POST["max_offences_reason"]);
-    $max_file_size = (int)$_POST["max_file_size"];
-    $file_type = htmlspecialchars($_POST["file_type"]);
-
-    // Prepare update query
-    $update_query = "
-        UPDATE `" . $config->db_prefix . "_webconfig` SET 
-        `cookie` = :cookie, 
-        `design` = :design, 
-        `bans_per_page` = :bans_per_page, 
-        `banner` = :banner, 
-        `banner_url` = :banner_url, 
-        `default_lang` = :language, 
-        `start_page` = :start_page, 
-        `show_comment_count` = :show_comment_count, 
-        `show_demo_count` = :show_demo_count, 
-        `show_kick_count` = :show_kick_count, 
-        `use_demo` = :use_demo, 
-        `use_comment` = :use_comment, 
-        `demo_all` = :demo_all, 
-        `comment_all` = :comment_all, 
-        `use_capture` = :use_capture, 
-        `auto_prune` = :auto_prune, 
-        `max_offences` = :max_offences, 
-        `max_offences_reason` = :max_offences_reason, 
-        `max_file_size` = :max_file_size, 
-        `file_type` = :file_type 
-        WHERE `id` = 1 LIMIT 1
-    ";
-
-    // Execute update query with prepared statement
-    $stmt = $pdo->prepare($update_query);
-    $stmt->execute([
-        'cookie' => $cookie,
-        'design' => $design,
-        'bans_per_page' => $bans_per_page,
-        'banner' => $banner,
-        'banner_url' => $banner_url,
-        'language' => $language,
-        'start_page' => $start_page,
-        'show_comment_count' => $show_comment_count,
-        'show_demo_count' => $show_demo_count,
-        'show_kick_count' => $show_kick_count,
-        'use_demo' => $use_demo,
-        'use_comment' => $use_comment,
-        'demo_all' => $demo_all,
-        'comment_all' => $comment_all,
-        'use_capture' => $use_capture,
-        'auto_prune' => $auto_prune,
-        'max_offences' => $max_offences,
-        'max_offences_reason' => $max_offences_reason,
-        'max_file_size' => $max_file_size,
-        'file_type' => $file_type
-    ]);
-
-    $user_msg = "_CONFIGSAVED";
-    log_to_db("Websetting config", "Changed");
-
-    // Set language
-    $_SESSION["lang"] = $language;
-
-    // Clear Smarty cache
-    $smarty->clearCompiledTemplate();
+if (action() === 'save') {
+    Auth::require('websettings_edit');
+    $pick = fn(string $v, array $allowed, string $default) => in_array($v, $allowed, true) ? $v : $default;
+    $types = array_filter(array_map(fn($t) => strtolower(trim($t)), explode(',', input('file_type'))), fn($t) => preg_match('/^[a-z0-9]{1,8}$/', $t));
+    $data = [
+        'cookie'              => preg_replace('/[^A-Za-z0-9_]/', '', input('cookie')) ?: 'amxbans',
+        'design'              => $pick(input('design'), $designs, 'modern'),
+        'bans_per_page'       => max(5, min(200, input_int('bans_per_page', 50))),
+        'banner'              => $pick(input('banner'), $banners, ''),
+        'banner_url'          => mb_substr(safe_url(input('banner_url')) === '#' ? '' : input('banner_url'), 0, 128),
+        'default_lang'        => $pick(input('default_lang'), Lang::available(), 'english'),
+        'start_page'          => $pick(input('start_page'), $startPages, 'ban_list.php'),
+        'show_comment_count'  => input_bool('show_comment_count') ? 1 : 0,
+        'show_demo_count'     => input_bool('show_demo_count') ? 1 : 0,
+        'show_kick_count'     => input_bool('show_kick_count') ? 1 : 0,
+        'use_demo'            => input_bool('use_demo') ? 1 : 0,
+        'use_comment'         => input_bool('use_comment') ? 1 : 0,
+        'demo_all'            => input_bool('demo_all') ? 1 : 0,
+        'comment_all'         => input_bool('comment_all') ? 1 : 0,
+        'use_capture'         => input_bool('use_capture') ? 1 : 0,
+        'auto_prune'          => input_bool('auto_prune') ? 1 : 0,
+        'max_offences'        => max(0, min(1000, input_int('max_offences', 10))),
+        'max_offences_reason' => mb_substr(input('max_offences_reason') ?: 'max offences reached', 0, 128),
+        'max_file_size'       => max(1, min(512, input_int('max_file_size', 2))),
+        'file_type'           => mb_substr(implode(',', $types), 0, 64),
+    ];
+    $id = (int)Database::value('SELECT `id` FROM ' . Database::table('webconfig') . ' ORDER BY `id` LIMIT 1');
+    Database::update('webconfig', $data, ['id' => $id]);
+    $view->clearCompiledTemplate();
+    log_to_db('Websetting config', 'Changed');
+    flash('success', '_CONFIGSAVED');
+    redirect_back();
 }
 
-// Fetch and set web settings
-$vars = sql_set_websettings();
-
-$smarty->assign("yesno_select", ["_YES", "_NO"]);
-$smarty->assign("yesno_values", [1, 0]);
-$smarty->assign("vars", $vars);
-$smarty->assign("designs", $designs);
-$smarty->assign("banners", $banners);
-$smarty->assign("start_pages", $start_pages);
-?>
+$view->page('admin/settings.tpl', [
+    'vars'        => Database::one('SELECT * FROM ' . Database::table('webconfig') . ' ORDER BY `id` LIMIT 1') ?? [],
+    'designs'     => $designs,
+    'banners'     => $banners,
+    'start_pages' => $startPages,
+    'upload_limit'=> ini_get('upload_max_filesize'),
+], '_TITLESITE');

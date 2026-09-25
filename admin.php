@@ -1,96 +1,101 @@
 <?php
+declare(strict_types=1);
 
-ini_set("display_errors", 0);
+require __DIR__ . '/include/bootstrap.php';
 
-session_start();
-if( $_SESSION['level'] == NULL || !$_SESSION['loggedin']==true) {
-  header("Location: index.php"); 
-  exit();
+Auth::require();
+
+/*
+ * Admin area router: admin.php?site=<page> or admin.php?modul=<module>.
+ * Only pages listed here can be loaded; each has the permission needed to open it.
+ * (Actions inside a page may require additional permissions.)
+ */
+$pages = [
+    'so_in'          => null,
+    'ban_add'        => 'bans_add',
+    'ban_add_online' => 'bans_add',
+    'sm_sv'          => 'servers_edit',
+    'sm_bg'          => 'servers_edit',
+    'sm_av'          => 'amxadmins_view',
+    'sm_sa'          => 'amxadmins_view',
+    'wm_wa'          => null, // everybody may change their own password; the list needs webadmins_view
+    'wm_ul'          => 'permissions_edit',
+    'wm_um'          => 'websettings_view',
+    'wm_ms'          => 'websettings_view',
+    'so_lg'          => 'websettings_view',
+    'so_mo'          => 'websettings_view',
+    'so_vs'          => null,
+];
+
+$modules = modules_active();
+$module = query('modul');
+$site = query('site', 'so_in');
+if ($site === 'so_up') {
+    $site = 'so_vs';
 }
 
-require_once("include/config.inc.php");
-require_once("include/access.inc.php");
-require_once("include/menu.inc.php");
-require_once("include/logfunc.inc.php");
-require_once("include/functions.inc.php");
-require_once("include/sql.inc.php");
+$view->assign('admin_nav', admin_navigation($modules));
 
-if(!$_SESSION["loggedin"]) {
-  header("Location:index.php");
+if ($module !== '') {
+    if (!isset($modules[$module])) {
+        abort(404);
+    }
+    $view->assign('admin_site', 'modul_' . $module);
+    require __DIR__ . '/include/modules/modul_' . $module . '.php';
+    exit;
 }
 
-$site_start    = "so_in"; //Admin Start Page
-
-$admin_site  = "default";
-$user_msg = "";
-
-$smarty = new dynamicPage;
-$smarty->setTemplateDir($config->templatedir);  
-  
-//modul page loader
-if(isset($_GET["modul"])) {
-  $modul=basename($_GET["modul"]);
-}else{
-  $modul=basename("");
+if (!array_key_exists($site, $pages)) {
+    abort(404);
 }
+if ($pages[$site] !== null) {
+    Auth::require($pages[$site]);
+}
+$view->assign('admin_site', $site);
+require __DIR__ . '/include/admin/admin_' . $site . '.php';
 
-$modul_exists = "";
-if(isset($_GET["modul"]) && file_exists("include/modules/modul_".$modul.".php")) {
-  include("include/modules/modul_".$modul.".php");
-  $modul_exists=1;
-  
+/** Sidebar of the admin area, filtered by the permissions of the current admin. */
+function admin_navigation(array $modules): array
+{
+    $groups = [
+        ['_ADMINAREA', [
+            ['so_in', '_MENUINFO', 'squares-2x2', null],
+            ['ban_add', '_ADDBAN', 'plus', 'bans_add'],
+            ['ban_add_online', '_ADDBANONLINE', 'bolt', 'bans_add'],
+        ]],
+        ['_SERVER', [
+            ['sm_sv', '_MENUSERVER', 'server-stack', 'servers_edit'],
+            ['sm_bg', '_MENUREASONS', 'clipboard-document-list', 'servers_edit'],
+            ['sm_av', '_MENUAMXADMINS', 'users', 'amxadmins_view'],
+            ['sm_sa', '_MENUSERVERADMINS', 'key', 'amxadmins_view'],
+        ]],
+        ['_WEB', [
+            ['wm_wa', '_MENUWEBADMINS', 'user', null],
+            ['wm_ul', '_MENUUSERLEVEL', 'shield-check', 'permissions_edit'],
+            ['wm_um', '_MENUUSERMENU', 'list-bullet', 'websettings_view'],
+            ['wm_ms', '_MENUWEBCONFIG', 'cog-6-tooth', 'websettings_view'],
+            ['so_lg', '_MENULOGS', 'document-text', 'websettings_view'],
+        ]],
+        ['_MODULES', [
+            ['so_mo', '_MODULES', 'puzzle-piece', 'websettings_view'],
+            ['so_vs', '_MENUUPDATE', 'arrow-path', null],
+        ]],
+    ];
+    foreach ($modules as $name => $m) {
+        $groups[3][1][] = ['modul_' . $name, (string)$m['menuname'], $name === 'iexport' ? 'archive-box' : 'arrow-up-tray', null];
+    }
+    $out = [];
+    foreach ($groups as [$label, $items]) {
+        $visible = [];
+        foreach ($items as [$site, $title, $icon, $perm]) {
+            if ($perm === null || Auth::can($perm)) {
+                $url = str_starts_with($site, 'modul_') ? 'admin.php?modul=' . substr($site, 6) : 'admin.php?site=' . $site;
+                $visible[] = ['site' => $site, 'title' => $title, 'icon' => $icon, 'url' => $url];
+            }
+        }
+        if ($visible) {
+            $out[] = ['label' => $label, 'items' => $visible];
+        }
+    }
+    return $out;
 }
-//admin page loader
-if(isset($_GET["site"])) {
-  $site=basename($_GET["site"]);
-}else{
-  $site=basename("");
-}
-if(!$modul_exists) {
-  if(isset($_GET["site"]) && file_exists("include/admin/admin_".$site.".php")) {
-    include("include/admin/admin_".$site.".php");
-    $smarty->assign("menu_pos",$site);
-  } else {
-    include("include/admin/admin_".$site_start.".php");
-    $smarty->assign("menu_pos",$site_start);
-  }
-}
-
-//get module menu (only active)
-$modules_menu_count=0;
-$modules_menu=sql_get_modules(1, $modules_menu_count);
-
-  
-// Template generieren
-$smarty->assign("meta","");
-$smarty->assign("title",$title2);
-$smarty->assign("version_web",$config->v_web);
-$smarty->assign("banner",$config->banner);
-$smarty->assign("banner_url",$config->banner_url);
-if(file_exists("templates/".$config->design."/main_header.tpl")) {
-  $smarty->assign("design",$config->design);
-}
-$smarty->assign("dir",$config->document_root);
-$smarty->assign("current_lang",$config->default_lang);
-$smarty->assign("this",$_SERVER['PHP_SELF']);
-$smarty->assign("menu",$menu);
-$smarty->assign("modules_menu",$modules_menu);
-$smarty->assign("modules_menu_count",$modules_menu_count);
-$smarty->assign("msg",$user_msg);
-if($modul_exists==1) {
-  $smarty->assign("site",$modul_site);
-  $smarty->assign("menu_pos",$modul);
-} else {
-  $smarty->assign("site",$admin_site);
-}
-
-$smarty->display('main_header.tpl');
-$smarty->display('admin_index.tpl');
-if($modul_exists==1) {
-  $smarty->display('modul_'.$modul_site.'.tpl');
-} else {
-  $smarty->display('admin_'.$admin_site.'.tpl');
-}
-$smarty->display('main_footer.tpl');
-
-?>

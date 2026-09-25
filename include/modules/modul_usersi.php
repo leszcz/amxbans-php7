@@ -1,158 +1,58 @@
 <?php
-/**
-    Moduł pozwalający na łatwy import listy adminów z pliku users.ini
-    do bazy danych z bezpośrednim przypisaniem adminów do serwerów.
-	Edit by l3szcz: przerobienie funkcji mysql* na PDO
-	
-    @author Portek <admin@portek.net.pl>
-	@author l3szcz <admin@gameslot.pl>
-    @url http://cserwerek.pl/user/2-michal/ AMXX.PL::Portek
-    @url http://amxx.pl/user/509-portek/ CSERWEREK.PL::Portek
-    @license http://creativecommons.org/licenses/by-nc-sa/3.0/deed.pl CreativeCommons BY-NC-SA
-    @version 1.3.0
-*/
+declare(strict_types=1);
 
-session_start();
+/*
+ * Import AMX Mod X admins from a users.ini file and assign them to a server.
+ * Original module by Portek, PDO version by l3szcz.
+ * Format: "auth" "password" "access flags" "account flags"
+ */
 
-if (!$_SESSION["loggedin"]) {
-    header("Location: index.php");
-    exit;
-}
+Auth::require('amxadmins_edit');
 
-if (!has_access("bans_import")) {
-    header("Location: index.php");
-    exit;
-}
-
-ob_start();
-
-$modul_site = "usersi";
-$title2 = "Import adminów z users.ini";
-
-function validateSID($steamid) {
-    if (strlen(trim($steamid)) > 0) {
-        $regex = "/^STEAM_0:[01]:[0-9]{7,8}$/";
-        return preg_match($regex, $steamid) ? $steamid : null;
+if (action() === 'import') {
+    $sid = input_int('server');
+    $server = server_find($sid) ?? abort(404);
+    $static = input('static_bantime') === 'no' ? 'no' : 'yes';
+    $upload = $_FILES['file'] ?? null;
+    if (!is_array($upload) || ($upload['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file((string)$upload['tmp_name'])) {
+        flash('error', '_FILENOFILE');
+        redirect_back();
     }
-    return null;
-}
-
-$pdo = getPDO();  // get PDO instance from sql.inc.php 
-
-$stmt = $pdo->query("SELECT id, hostname FROM `{$config->db_prefix}_serverinfo`");
-$serwery = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$smarty->assign("serwery", $serwery);
-
-if (isset($_POST['usersImport'])) {
-    if (!has_access("bans_import")) {
-        header("Location: index.php");
-        exit;
+    if ((int)$upload['size'] > 2 * 1024 * 1024) {
+        flash('error', '_FILETOBIG');
+        redirect_back();
     }
-
-    $serwerID = (int)$_POST['serverID'];
-    $maxFileSize = $config->max_file_size * 1024 * 1024;
-
-    if ($_FILES['usersFile']['size'] >= $maxFileSize) {
-        $user_msg = "_FILETOBIG";
-    }
-
-    if (!$user_msg) {
-        $filePath = "temp/" . basename($_FILES['usersFile']['name']);
-        
-        if (!move_uploaded_file($_FILES['usersFile']['tmp_name'], $filePath)) {
-            $user_msg = "_FILEUPLOADFAIL";
-        } else {
-            if ($fh = fopen($filePath, "r")) {
-                $content = [];
-                while (!feof($fh)) {
-                    $content[] = fgets($fh, 9999);
-                }
-                fclose($fh);
-
-                $admini = [];
-                foreach ($content as $line) {
-                    if (!preg_match('/^;/', $line)) {
-                        $dane = explode('"', $line);
-                        $sid = validateSID($dane[1]) ?: null;
-
-                        if (!empty($dane[1]) && !empty($dane[5]) && !empty($dane[7])) {
-                            $prawa = $dane[9] ? 'yes' : $_POST['isStatic'];
-                            $admini[] = [
-                                'id' => $dane[1],
-                                'sid' => $sid,
-                                'pw' => !empty($dane[3]) ? md5($dane[3]) : '',
-                                'flags' => $dane[5],
-                                'access' => $dane[7],
-                                'static' => $prawa
-                            ];
-                        }
-                    }
-                }
-
-                foreach ($admini as $admin) {
-                    // Check if admin exists
-                    $checkQuery = "SELECT id FROM `{$config->db_prefix}_amxadmins` WHERE `steamid` = :sid OR `nickname` = :nickname";
-                    $stmt = $pdo->prepare($checkQuery);
-                    $stmt->execute([':sid' => $admin['sid'], ':nickname' => $admin['id']]);
-                    $accIsset = $stmt->fetchColumn();
-
-                    if (!$accIsset) {
-                        // Get admin last ID
-                        $stmt = $pdo->query("SELECT MAX(id) FROM `{$config->db_prefix}_amxadmins`");
-                        $IDAdmin = $stmt->fetchColumn() + 1;
-
-                        // insert new admin to database
-                        $insertAdminQuery = "INSERT INTO `{$config->db_prefix}_amxadmins` 
-                            (id, username, password, access, flags, steamid, nickname, ashow, created, expired, days)
-                            VALUES (:id, :username, :password, :access, :flags, :steamid, :nickname, 1, :created, 0, 0)";
-                        $stmt = $pdo->prepare($insertAdminQuery);
-                        $stmt->execute([
-                            ':id' => $IDAdmin,
-                            ':username' => $admin['id'],
-                            ':password' => $admin['pw'],
-                            ':access' => $admin['access'],
-                            ':flags' => $admin['flags'],
-                            ':steamid' => $admin['sid'],
-                            ':nickname' => $admin['id'],
-                            ':created' => time()
-                        ]);
-
-                        // assign admin to server
-                        $insertServerQuery = "INSERT INTO `{$config->db_prefix}_admins_servers` 
-                            (admin_id, server_id, custom_flags, use_static_bantime) 
-                            VALUES (:admin_id, :server_id, '', :static)";
-                        $stmt = $pdo->prepare($insertServerQuery);
-                        $stmt->execute([
-                            ':admin_id' => $IDAdmin,
-                            ':server_id' => $serwerID,
-                            ':static' => $admin['static']
-                        ]);
-                    } else {
-                        // check if admin is assigned to server
-                        $checkServerQuery = "SELECT COUNT(*) FROM `{$config->db_prefix}_admins_servers` WHERE admin_id = :admin_id AND server_id = :server_id";
-                        $stmt = $pdo->prepare($checkServerQuery);
-                        $stmt->execute([':admin_id' => $accIsset, ':server_id' => $serwerID]);
-                        if ($stmt->fetchColumn() == 0) {
-                            // assign exists admin to new server
-                            $insertServerQuery = "INSERT INTO `{$config->db_prefix}_admins_servers` 
-                                (admin_id, server_id, custom_flags, use_static_bantime) 
-                                VALUES (:admin_id, :server_id, '', :static)";
-                            $stmt = $pdo->prepare($insertServerQuery);
-                            $stmt->execute([
-                                ':admin_id' => $accIsset,
-                                ':server_id' => $serwerID,
-                                ':static' => $admin['static']
-                            ]);
-                        }
-                    }
-                }
-                unlink($filePath);
-                $user_msg = "Operacja zakończona sukcesem!";
-            }
+    $added = $assigned = $skipped = 0;
+    foreach (file((string)$upload['tmp_name'], FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === ';' || !preg_match_all('/"([^"]*)"/', $line, $m) || count($m[1]) < 4) {
+            continue;
+        }
+        [$auth, $password, $access, $flags] = $m[1];
+        $flagError = '';
+        if ($auth === '' || !valid_access_flags($access) || !valid_account_flags($flags, $flagError)) {
+            $skipped++;
+            continue;
+        }
+        $steamid = valid_steamid($auth) ? $auth : '';
+        $id = (int)Database::value('SELECT `id` FROM ' . Database::table('amxadmins') . ' WHERE `username` = :u LIMIT 1', ['u' => $auth]);
+        if (!$id) {
+            $id = Database::insert('amxadmins', [
+                'username' => mb_substr($auth, 0, 32), 'password' => $password !== '' ? md5($password) : '',
+                'access' => $access, 'flags' => $flags, 'steamid' => $steamid, 'nickname' => mb_substr($auth, 0, 32),
+                'icq' => 0, 'ashow' => 1, 'created' => time(), 'expired' => 0, 'days' => 0,
+            ]);
+            $added++;
+        }
+        $exists = Database::value('SELECT 1 FROM ' . Database::table('admins_servers') . ' WHERE `admin_id` = :a AND `server_id` = :s', ['a' => $id, 's' => $sid]);
+        if (!$exists) {
+            Database::insert('admins_servers', ['admin_id' => $id, 'server_id' => $sid, 'custom_flags' => '', 'use_static_bantime' => $static]);
+            $assigned++;
         }
     }
+    log_to_db('Import admins', "users.ini → {$server['hostname']}: $added added, $assigned assigned, $skipped skipped");
+    flash('success', '_IMPORTSUCCESS', [sprintf(__('_USERSI_RESULT'), $added, $assigned, $skipped)]);
+    redirect_back();
 }
 
-ob_end_flush();
-?>
+$view->page('modules/usersi.tpl', ['servers' => servers_all()], '_MENUIMPORTADMINS');

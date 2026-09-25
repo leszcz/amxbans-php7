@@ -1,172 +1,115 @@
 <?php
-session_start();
-if (!$_SESSION["loggedin"]) {
-    header("Location:index.php");
-    exit;
-}
+declare(strict_types=1);
 
-// CSRF protection: Verify token
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== $_SESSION['csrf_token']) {
-        die('CSRF token mismatch. Possible CSRF attack.');
+/* Web admins (_webadmins): accounts that can log in to this website. */
+
+const MIN_PASSWORD = 8;
+$levels = array_map('intval', Database::column('SELECT `level` FROM ' . Database::table('levels') . ' ORDER BY `level`'));
+
+$checkUnique = function (string $name, string $email, int $exceptId = 0): void {
+    $dup = Database::value(
+        'SELECT COUNT(*) FROM ' . Database::table('webadmins') . ' WHERE (`username` = :u OR (`email` = :e AND `email` <> \'\')) AND `id` <> :id',
+        ['u' => $name, 'e' => $email, 'id' => $exceptId]
+    );
+    if ($dup) {
+        flash('error', '_WADMINADDEDFAILED');
+        redirect_back();
     }
-}
-
-// Generate a CSRF token and store it in session
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32)); // Create a unique CSRF token
-}
-
-if (!has_access("amxadmins_view")) {
-    header("Location:index.php");
-    exit;
-}
-
-$admin_site = "wa";
-$title2 = "_TITLEWEBADMIN";
-
-// Connect to the database using PDO
-$pdo = getPDO();
-
-// Check if UID is provided
-$uid = isset($_POST["uid"]) && is_numeric($_POST["uid"]) ? (int)$_POST["uid"] : "";
-
-// Fetch levels from the database
-$levels = [];
-$stmt = $pdo->query("SELECT `level` FROM `" . $config->db_prefix . "_levels` ORDER BY `level`");
-while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-    $levels[] = $row['level'];
-}
-
-// Function to check if an admin with the same nickname or email exists
-function checkAdmin($pdo, $nickname, $email)
-{
-    global $config;
-    $stmt = $pdo->prepare("SELECT * FROM `" . $config->db_prefix . "_webadmins` WHERE `username` = :nickname OR `email` = :email");
-    $stmt->execute(['nickname' => $nickname, 'email' => $email]);
-    return $stmt->rowCount() > 0;
-}
-
-// Save or create a new web admin
-if (isset($_POST["save"]) || isset($_POST["new"])) {
-    if (!has_access("amxadmins_view")) {
-        header("Location:index.php");
-        exit;
+};
+$readAccount = function () use ($levels): array {
+    $data = [
+        'username' => mb_substr(input('username'), 0, 32),
+        'email'    => mb_substr(input('email'), 0, 64),
+        'level'    => input_int('level'),
+    ];
+    $errors = [];
+    if (mb_strlen($data['username']) < 2) {
+        $errors[] = '_USERNAMETOSHORT';
     }
-    $name = htmlspecialchars(trim($_POST["name"]));
-    $email = filter_var(trim($_POST["email"]), FILTER_VALIDATE_EMAIL);
-
-    if (!$email) {
-        $user_msg = "_INVALID_EMAIL";
+    if ($data['email'] !== '' && !valid_email($data['email'])) {
+        $errors[] = '_EMAILINVALID';
     }
-}
-
-// Change password
-if (isset($_POST["setnewpw"])) {
-    if (!has_access("amxadmins_view")) {
-        header("Location:index.php");
-        exit;
+    if (!in_array($data['level'], $levels, true)) {
+        $errors[] = '_ACCESSINVALID';
     }
-
-    $newpw = $_POST["newpw"];
-    if (strlen($newpw) < 4) {
-        $user_msg = "_PASSWORD_TOO_SHORT";
+    if ($errors) {
+        flash('error', '_ERROR', $errors);
+        redirect_back();
     }
+    return $data;
+};
+$readPassword = function (): string {
+    $pw = (string)($_POST['password'] ?? '');
+    if (strlen($pw) < MIN_PASSWORD) {
+        flash('error', '_PASSWORDTOSHORT', [sprintf(__('_MIN_CHARS'), MIN_PASSWORD)]);
+        redirect_back();
+    }
+    if (!hash_equals($pw, (string)($_POST['password2'] ?? ''))) {
+        flash('error', '_PASSWORDNOTMATCH');
+        redirect_back();
+    }
+    return Auth::hashPassword($pw);
+};
 
-    if (!$user_msg) {
-        $hashed_pw = password_hash($newpw, PASSWORD_BCRYPT);
-        $stmt = $pdo->prepare("UPDATE `" . $config->db_prefix . "_webadmins` SET `password` = :password WHERE `id` = :uid LIMIT 1");
-        if ($stmt->execute(['password' => $hashed_pw, 'uid' => $uid])) {
-            log_to_db("Webadmin config", "Edited user: " . htmlspecialchars($_POST["name"]) . " (id: " . $uid . ") changed password");
+switch (action()) {
+    case 'add':
+        Auth::require('webadmins_edit');
+        $data = $readAccount();
+        $checkUnique($data['username'], $data['email']);
+        $data['password'] = $readPassword();
+        $data['try'] = 0;
+        Database::insert('webadmins', $data);
+        log_to_db('Webadmin config', "Added user: {$data['username']} (level {$data['level']})");
+        flash('success', '_WADMINADDED');
+        redirect_back();
 
-            // Send an email notification to the user
-            $to = $_POST["email"];
-            $subject = 'AMXBans: Your login has changed';
-            $msg = 'Your account password has been changed by ' . $_SESSION["uname"] . '. Your new password is: ' . $newpw;
-            $headers = 'From: ' . $_SESSION["email"] . "\r\n" . 'X-Mailer: PHP/' . phpversion();
-            mail($to, $subject, $msg, $headers);
-
-            // Log the user out if their own password was changed
-            if ($_SESSION["uname"] == $_POST["name"]) {
-                header("Location: logout.php");
-                exit;
-            }
-        } else {
-            $user_msg = "_PASSWORD_CHANGE_FAILED";
+    case 'save':
+        Auth::require('webadmins_edit');
+        $uid = input_int('uid');
+        $data = $readAccount();
+        $checkUnique($data['username'], $data['email'], $uid);
+        if ($uid === Auth::id() && $data['level'] !== (int)Auth::user()['level']) {
+            flash('error', '_CANNOT_CHANGE_OWN_LEVEL');
+            redirect_back();
         }
-    }
-}
+        Database::update('webadmins', $data, ['id' => $uid]);
+        log_to_db('Webadmin config', "Edited user: {$data['username']} (id $uid)");
+        flash('success', '_WADMINSAVED');
+        redirect_back();
 
-// Save web admin changes
-if (isset($_POST["save"])) {
-    if (!has_access("amxadmins_view")) {
-        header("Location:index.php");
-        exit;
-    }
-
-    if (!$user_msg) {
-        $stmt = $pdo->prepare("UPDATE `" . $config->db_prefix . "_webadmins` SET 
-                `username` = :name, `level` = :level, `email` = :email, `logcode` = '' 
-                WHERE `id` = :uid LIMIT 1");
-        if ($stmt->execute([
-            'name' => $name,
-            'level' => (int)$_POST["level"],
-            'email' => $email,
-            'uid' => $uid
-        ])) {
-            $user_msg = "_WADMINSAVED";
-            log_to_db("Webadmin config", "Edited user: " . htmlspecialchars($_POST["name"]) . " (id: " . $uid . ")");
-        } else {
-            $user_msg = "_WEBADMIN_SAVE_FAILED";
+    case 'password':
+        $uid = input_int('uid');
+        if ($uid !== Auth::id()) {
+            Auth::require('webadmins_edit');
         }
-    }
-}
-
-// Delete a web admin
-if (isset($_POST["del"])) {
-    if (!has_access("amxadmins_view")) {
-        header("Location:index.php");
-        exit;
-    }
-
-    $stmt = $pdo->prepare("DELETE FROM `" . $config->db_prefix . "_webadmins` WHERE `id` = :uid LIMIT 1");
-    if ($stmt->execute(['uid' => $uid])) {
-        $user_msg = "_WADMINDELETED";
-        log_to_db("Webadmin config", "Deleted user: " . htmlspecialchars($_POST["name"]));
-    }
-}
-
-// Add a new web admin
-if (isset($_POST["new"])) {
-    $pw = $_POST["pw"];
-    $pw2 = $_POST["pw2"];
-    $level = (int)$_POST["level"];
-
-    if ($pw !== $pw2) {
-        $user_msg = "_PASSWORDNOTMATCH";
-    }
-
-    if (checkAdmin($pdo, $name, $email)) {
-        $user_msg = "_WADMINADDEDFAILED";
-    }
-
-    if (!$user_msg) {
-        $hashed_pw = password_hash($pw, PASSWORD_BCRYPT);
-        $stmt = $pdo->prepare("INSERT INTO `" . $config->db_prefix . "_webadmins` (`username`, `password`, `level`, `email`) 
-                               VALUES (:name, :password, :level, :email)");
-        if ($stmt->execute(['name' => $name, 'password' => $hashed_pw, 'level' => $level, 'email' => $email])) {
-            $user_msg = "_WADMINADDED";
-            log_to_db("User Level config", "Added user: " . htmlspecialchars($_POST["name"]) . " (level " . $level . ")");
-        } else {
-            $user_msg = "_WADMINADDEDFAILED";
+        $hash = $readPassword();
+        // Changing the password also logs out "remember me" sessions of that account.
+        Database::update('webadmins', ['password' => $hash, 'logcode' => null, 'try' => 0], ['id' => $uid]);
+        log_to_db('Webadmin config', "Changed password of user id $uid");
+        if ($uid === Auth::id()) {
+            Auth::refreshSession();
         }
-    }
+        flash('success', '_PASSWORDCHANGED');
+        redirect_back();
+
+    case 'delete':
+        Auth::require('webadmins_edit');
+        $uid = input_int('uid');
+        if ($uid === Auth::id()) {
+            flash('error', '_CANNOT_DELETE_SELF');
+            redirect_back();
+        }
+        Database::delete('webadmins', ['id' => $uid]);
+        log_to_db('Webadmin config', "Deleted user id $uid");
+        flash('success', '_WADMINDELETED');
+        redirect_back();
 }
 
-// Fetch all web admins
-$users = sql_get_webadmins($pdo);
-
-// Assign variables to Smarty template
-$smarty->assign("users", $users);
-$smarty->assign("levels", $levels);
-?>
+$view->page('admin/webadmins.tpl', [
+    'users'  => Database::all(
+        'SELECT `id`, `username`, `email`, `level`, `last_action`, `try` FROM ' . Database::table('webadmins')
+        . (Auth::can('webadmins_view') ? '' : ' WHERE `id` = ' . Auth::id()) . ' ORDER BY `level`, `username`'
+    ),
+    'levels' => $levels,
+    'min_pw' => MIN_PASSWORD,
+], '_TITLEWEBADMIN');

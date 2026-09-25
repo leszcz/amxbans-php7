@@ -1,55 +1,24 @@
 <?php
-session_start();
-if (!$_SESSION["loggedin"]) {
-    header("Location:index.php");
-    exit;
+declare(strict_types=1);
+
+/* Modules (_modulconfig): enable / disable and rename the menu entry. */
+
+if (action() === 'save') {
+    Auth::require('websettings_edit');
+    Database::update('modulconfig', [
+        'activ'    => input_bool('activ') ? 1 : 0,
+        'menuname' => mb_substr(input('menuname'), 0, 32),
+    ], ['id' => input_int('mid')]);
+    log_to_db('Modules config', 'Edited module #' . input_int('mid'));
+    flash('success', '_MODULSAVED');
+    redirect_back();
 }
 
-if (!has_access("websettings_view")) {
-    header("Location:index.php");
-    exit;
+$modules = Database::all('SELECT * FROM ' . Database::table('modulconfig') . ' ORDER BY `name`');
+foreach ($modules as &$m) {
+    $name = preg_replace('/[^a-z0-9_]/i', '', (string)$m['name']);
+    $m['installed'] = is_file(AMXB_ROOT . '/include/modules/modul_' . $name . '.php');
 }
+unset($m);
 
-$admin_site = "mo";
-$title2 = "_TITLEMODULE";
-
-$mid = isset($_POST["mid"]) ? (int)$_POST["mid"] : "";
-$modules_menu_count = 0;
-
-$pdo = getPDO();
-
-// save module
-if (isset($_POST["save"])) {
-    if (!has_access("websettings_edit")) {
-        header("Location:index.php");
-        exit;
-    }
-    
-    // get queries prepared to use module
-    $stmt = $pdo->prepare("UPDATE `{$config->db_prefix}_modulconfig` 
-        SET `activ` = :activ, 
-            `menuname` = :menuname, 
-            `name` = :name, 
-            `index` = :index 
-        WHERE `id` = :mid 
-        LIMIT 1");
-    
-    // prepare params to execute queries
-    $stmt->execute([
-        ':activ' => isset($_POST["activ"]) ? 1 : 0,
-        ':menuname' => $_POST["menuname"],
-        ':name' => $_POST["name"],
-        ':index' => $_POST["index"],
-        ':mid' => $mid
-    ]);
-
-    $user_msg = '_MODULSAVED';
-    log_to_db("Modules config", "Edited module: ID " . $mid);
-}
-
-// get modules list
-$modules2 = sql_get_modules(0, $tmp);
-
-$smarty->assign("modules_menu_count", $modules_menu_count);
-$smarty->assign("modules2", $modules2);
-?>
+$view->page('admin/modules.tpl', ['modules' => $modules], '_TITLEMODULE');

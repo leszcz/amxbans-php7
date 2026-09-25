@@ -1,0 +1,41 @@
+<?php return array(
+    'root' => array(
+        'name' => 'leszcz/amxbans-php7',
+        'pretty_version' => 'dev-main',
+        'version' => 'dev-main',
+        'reference' => 'd344303cd10b70576173cbab569725aad099c603',
+        'type' => 'project',
+        'install_path' => __DIR__ . '/../../',
+        'aliases' => array(),
+        'dev' => false,
+    ),
+    'versions' => array(
+        'leszcz/amxbans-php7' => array(
+            'pretty_version' => 'dev-main',
+            'version' => 'dev-main',
+            'reference' => 'd344303cd10b70576173cbab569725aad099c603',
+            'type' => 'project',
+            'install_path' => __DIR__ . '/../../',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'smarty/smarty' => array(
+            'pretty_version' => 'v5.8.4',
+            'version' => '5.8.4.0',
+            'reference' => '94a27cbbc7820198d7adc17a2be8d457fb267753',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../smarty/smarty',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+        'symfony/polyfill-mbstring' => array(
+            'pretty_version' => 'v1.38.2',
+            'version' => '1.38.2.0',
+            'reference' => 'd3d318bad5e7a1bfbd026009c8bfb8d8f99ae6b6',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../symfony/polyfill-mbstring',
+            'aliases' => array(),
+            'dev_requirement' => false,
+        ),
+    ),
+);
