@@ -1,3 +1,5 @@
+{* Installer (setup.php). Variables: $step (requirements|database|admin|install|done|locked), $steps, $step_index,
+   $step_labels, $requirements, $requirements_ok, $setup (wizard state), $written, $config_php. *}
 <!DOCTYPE html>
 <html lang="{$app.html_lang}" class="h-full">
 <head>

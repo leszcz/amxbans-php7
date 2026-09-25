@@ -1,10 +1,17 @@
 <?php
 declare(strict_types=1);
 
-/*
- * Import / export module: SQL backups and banned.cfg import/export.
- * Backups are stored in include/backup/ (not accessible over HTTP, see .htaccess)
- * and can be downloaded through this page only.
+/**
+ * Module "Import/Export" (admin.php?modul=iexport, permission bans_export or bans_import).
+ *
+ * - GET download=<file>   download a stored backup (bans_export)
+ * - POST backup           SQL dump of the AMXBans tables, downloaded or stored in include/backup/
+ * - POST delete_backup    delete a stored backup
+ * - POST export_cfg       banned.cfg / listip.cfg lines for the game server
+ * - POST import_cfg       import banid/addip lines from an uploaded file (bans_import)
+ * - POST delete_imported  delete bans with imported = 1
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
  */
 
 if (!Auth::can('bans_export') && !Auth::can('bans_import')) {

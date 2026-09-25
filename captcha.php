@@ -1,7 +1,14 @@
 <?php
 declare(strict_types=1);
 
-/* Captcha image for guest comments / uploads. The code is created by the page that shows the form. */
+/**
+ * Captcha image (PNG) for guest comments and uploads.
+ *
+ * The code is created with captcha_new() by the page that shows the form and
+ * checked with captcha_check(). Runs without the full bootstrap.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
 
 require __DIR__ . '/include/Security.php';
 Security::startSession();

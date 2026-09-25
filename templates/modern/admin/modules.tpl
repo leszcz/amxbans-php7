@@ -1,4 +1,5 @@
 {extends file="admin/layout.tpl"}
+{* Modules (admin_so_mo.php). Variables: $modules. *}
 {block name=admin}
 <h1 class="mb-6 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_MODULSETTINGS"|lang}</h1>
 <div class="grid gap-4 md:grid-cols-2">

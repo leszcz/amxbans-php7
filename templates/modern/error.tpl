@@ -1,4 +1,5 @@
 {extends file="layout.tpl"}
+{* Error page (abort()). Variables: $code, $message (language key). *}
 {block name=content}
   <div class="mx-auto max-w-lg py-16 text-center">
     <p class="text-6xl font-bold text-brand-600 dark:text-brand-400">{$code}</p>

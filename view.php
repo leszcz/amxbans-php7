@@ -1,10 +1,21 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * Live server status.
+ *
+ * - view.php             page with statistics and one card per server (view.tpl)
+ * - view.php?server=ID   JSON used by the Alpine component "serverCard":
+ *                        {online: bool, info: {...}|null, players: [{name, frags, time}]}
+ *
+ * Only public A2S queries are used here; the RCON password is never needed.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
+
 require __DIR__ . '/include/bootstrap.php';
 require __DIR__ . '/include/GameServer.php';
 
-// JSON endpoint used by the server cards: view.php?server=ID
 if (($sid = query_int('server')) > 0) {
     header('Content-Type: application/json; charset=UTF-8');
     header('Cache-Control: no-store');

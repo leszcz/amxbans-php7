@@ -2,20 +2,53 @@
 declare(strict_types=1);
 
 /**
- * GoldSrc (HLDS) server communication over UDP:
+ * Game server communication.
+ *
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ * @link      https://developer.valvesoftware.com/wiki/Server_queries
+ */
+
+/**
+ * GoldSrc (HLDS) server communication over UDP.
+ *
  *  - A2S_INFO / A2S_PLAYER / A2S_RULES queries (public information)
  *  - RCON commands (requires the rcon_password stored in _serverinfo)
  *  - the "amx_list" command of the AMXBans plugin (online players with SteamID/IP)
+ *
+ * ```php
+ * $gs = new GameServer('1.2.3.4:27015', $server['rcon']);
+ * $info = $gs->info();                         // null when offline
+ * $out  = $gs->rcon('amx_reloadadmins');       // null on timeout
+ * ```
+ *
+ * Every method returns null / [] instead of throwing when the server does not answer.
  */
 final class GameServer
 {
+    /** @var resource|null UDP socket, opened lazily by open(). */
     private $socket = null;
+
+    /** @var string Host name or IP address. */
     private string $host;
+
+    /** @var int UDP port. */
     private int $port;
+
+    /** @var string RCON password ("" = RCON disabled). */
     private string $rconPassword;
+
+    /** @var string|null Challenge number returned by "challenge rcon". */
     private ?string $rconChallenge = null;
+
+    /** @var float Socket timeout in seconds. */
     private float $timeout;
 
+    /**
+     * @param string $address      "host:port" as stored in _serverinfo.address (port defaults to 27015).
+     * @param string $rconPassword RCON password, "" when RCON is not needed.
+     * @param float  $timeout      Read/connect timeout in seconds.
+     */
     public function __construct(string $address, string $rconPassword = '', float $timeout = 1.5)
     {
         [$host, $port] = self::parseAddress($address);
@@ -25,7 +58,12 @@ final class GameServer
         $this->timeout = $timeout;
     }
 
-    /** "1.2.3.4:27015" => ["1.2.3.4", 27015] */
+    /**
+     * Splits an address into host and port.
+     *
+     * @param string $address E.g. "1.2.3.4:27015".
+     * @return array{0: string, 1: int} Host and port (27015 when missing).
+     */
     public static function parseAddress(string $address): array
     {
         $address = trim($address);
@@ -37,11 +75,17 @@ final class GameServer
         return [$address, $port];
     }
 
+    /** Closes the socket. */
     public function __destruct()
     {
         $this->close();
     }
 
+    /**
+     * Closes the UDP socket (it is reopened automatically when needed).
+     *
+     * @return void
+     */
     public function close(): void
     {
         if (is_resource($this->socket)) {
@@ -50,6 +94,11 @@ final class GameServer
         $this->socket = null;
     }
 
+    /**
+     * Opens the UDP socket (hostnames are resolved first).
+     *
+     * @return bool False when the address is invalid or the socket cannot be created.
+     */
     private function open(): bool
     {
         if (is_resource($this->socket)) {
@@ -69,12 +118,23 @@ final class GameServer
         return true;
     }
 
+    /**
+     * Sends a raw packet.
+     *
+     * @param string $data Packet including the 0xFFFFFFFF header.
+     * @return bool True when the whole packet was written.
+     */
     private function send(string $data): bool
     {
         return $this->open() && @fwrite($this->socket, $data) === strlen($data);
     }
 
-    /** Reads one logical response (joins GoldSrc split packets). Returns payload after the 0xFFFFFFFF header. */
+    /**
+     * Reads one logical response and joins GoldSrc split packets (0xFEFFFFFF).
+     *
+     * @return string|null Payload after the 0xFFFFFFFF header, or null on timeout.
+     * @phpstan-impure Every call reads the next packet from the socket.
+     */
     private function receive(): ?string
     {
         $packet = @fread($this->socket, 4096);
@@ -109,7 +169,14 @@ final class GameServer
     // Public queries
     // ------------------------------------------------------------------------
 
-    /** A2S_INFO. Returns null when the server does not answer. */
+    /**
+     * Queries public server information (A2S_INFO), handling the S2C_CHALLENGE of newer servers.
+     *
+     * @return array{name: string, map: string, mod: string, game: string, appid: int, players: int,
+     *               max_players: int, bots: int, dedicated: bool, os: string, password: int,
+     *               secure: int, version: string, protocol: int}|null
+     *         Null when the server does not answer.
+     */
     public function info(): ?array
     {
         $request = "\xFF\xFF\xFF\xFFTSource Engine Query\x00";
@@ -149,7 +216,11 @@ final class GameServer
         return $info;
     }
 
-    /** A2S_PLAYER: list of ['name', 'frags', 'time' (seconds)]. */
+    /**
+     * Lists connected players (A2S_PLAYER).
+     *
+     * @return list<array{name: string, frags: int, time: int}> time = seconds on the server.
+     */
     public function players(): array
     {
         $data = $this->challengeQuery("\x55");
@@ -166,7 +237,11 @@ final class GameServer
         return $players;
     }
 
-    /** A2S_RULES: cvar => value. */
+    /**
+     * Reads public server cvars (A2S_RULES), e.g. amx_nextmap, amx_timeleft.
+     *
+     * @return array<string, string> cvar => value (empty on timeout).
+     */
     public function rules(): array
     {
         $data = $this->challengeQuery("\x56");
@@ -182,6 +257,12 @@ final class GameServer
         return $rules;
     }
 
+    /**
+     * Sends an A2S query that needs a challenge number (players, rules).
+     *
+     * @param string $type Query byte, "\x55" (players) or "\x56" (rules).
+     * @return string|null Response payload or null on timeout.
+     */
     private function challengeQuery(string $type): ?string
     {
         if (!$this->send("\xFF\xFF\xFF\xFF" . $type . "\xFF\xFF\xFF\xFF") || ($data = $this->receive()) === null) {
@@ -201,8 +282,14 @@ final class GameServer
     // ------------------------------------------------------------------------
 
     /**
-     * Executes an RCON command. Returns the response text, or null on timeout.
-     * The command must already be sanitized by the caller (see rcon_safe()).
+     * Executes an RCON command.
+     *
+     * The command must already be sanitized by the caller (see rcon_safe());
+     * commands containing line breaks are refused.
+     *
+     * @param string $command      Console command, e.g. "amx_reloadadmins".
+     * @param int    $extraPackets Additional response packets to read for long outputs.
+     * @return string|null Response text, or null on timeout / missing password.
      */
     public function rcon(string $command, int $extraPackets = 0): ?string
     {
@@ -233,6 +320,12 @@ final class GameServer
         return $i === 0 && $response === '' ? null : rtrim($response, "\x00\n");
     }
 
+    /**
+     * Detects the "Bad rcon_password." answer.
+     *
+     * @param string|null $response Result of rcon().
+     * @return bool True when the password was rejected.
+     */
     public static function isBadPassword(?string $response): bool
     {
         return $response !== null && stripos($response, 'Bad rcon_password') !== false;
@@ -240,7 +333,12 @@ final class GameServer
 
     /**
      * Online players via the AMXBans plugin command "amx_list".
-     * @return array|null  null = no answer, [] = nobody online
+     *
+     * The plugin answers with lines of fields separated by 0xFC:
+     * name, userid, steamid, ip[:port], status (0 player, 1 bot, 2 HLTV), immunity.
+     *
+     * @return list<array{name: string, userid: int, steamid: string, ip: string, status: int, immunity: int}>|null
+     *         Null = no answer; [] = nobody online or wrong RCON password.
      */
     public function amxList(): ?array
     {
@@ -268,30 +366,42 @@ final class GameServer
     }
 }
 
-/** Little-endian reader for Valve query responses. */
+/**
+ * Little-endian reader for Valve query responses.
+ *
+ * Reading past the end returns 0 / "" instead of failing.
+ */
 final class ByteReader
 {
+    /** @var int Current read offset. */
     private int $pos = 0;
 
+    /**
+     * @param string $data Packet payload.
+     */
     public function __construct(private readonly string $data)
     {
     }
 
+    /** @return bool True when all bytes were read. */
     public function eof(): bool
     {
         return $this->pos >= strlen($this->data);
     }
 
+    /** @return int Unsigned 8-bit integer. */
     public function byte(): int
     {
         return $this->eof() ? 0 : ord($this->data[$this->pos++]);
     }
 
+    /** @return string One byte as a character. */
     public function char(): string
     {
         return $this->eof() ? '' : $this->data[$this->pos++];
     }
 
+    /** @return int Unsigned 16-bit little-endian integer. */
     public function short(): int
     {
         $v = unpack('v', substr($this->data, $this->pos, 2) . "\0\0")[1];
@@ -299,6 +409,7 @@ final class ByteReader
         return $v;
     }
 
+    /** @return int Signed 32-bit little-endian integer. */
     public function long(): int
     {
         $v = unpack('l', substr($this->data, $this->pos, 4) . "\0\0\0\0")[1];
@@ -306,6 +417,7 @@ final class ByteReader
         return $v;
     }
 
+    /** @return float 32-bit little-endian float. */
     public function float(): float
     {
         $v = unpack('g', substr($this->data, $this->pos, 4) . "\0\0\0\0")[1];
@@ -313,6 +425,7 @@ final class ByteReader
         return $v;
     }
 
+    /** @return string NUL-terminated string, converted to UTF-8 (Windows-1252 fallback). */
     public function string(): string
     {
         $end = strpos($this->data, "\0", $this->pos);

@@ -1,4 +1,5 @@
 {extends file="admin/layout.tpl"}
+{* Version information (admin_so_vs.php). Variables: $servers, $releases_url. *}
 {block name=admin}
 <h1 class="mb-6 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_TITLEUPDATE"|lang}</h1>
 <div class="grid gap-6 xl:grid-cols-3">

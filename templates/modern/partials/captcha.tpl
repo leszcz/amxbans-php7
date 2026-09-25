@@ -1,3 +1,4 @@
+{* Captcha image + input for guests. Parameter: id (prefix for the input id). *}
 <div class="sm:col-span-2">
   <label class="label" for="{$id}-captcha">{"_SCODEENTER"|lang}</label>
   <div class="flex flex-wrap items-center gap-3">

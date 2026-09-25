@@ -1,10 +1,14 @@
 <?php
 declare(strict_types=1);
 
-/*
- * Import AMX Mod X admins from a users.ini file and assign them to a server.
+/**
+ * Module "Admins import" (admin.php?modul=usersi, permission amxadmins_edit).
+ *
+ * Imports AMX Mod X admins from an uploaded users.ini and assigns them to a server.
+ * Line format: "auth" "password" "access flags" "account flags".
  * Original module by Portek, PDO version by l3szcz.
- * Format: "auth" "password" "access flags" "account flags"
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
  */
 
 Auth::require('amxadmins_edit');

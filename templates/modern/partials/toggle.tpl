@@ -1,3 +1,4 @@
+{* On/off switch (checkbox). Parameters: name, label (language key), checked. *}
 <label class="flex items-center justify-between gap-4 py-2.5">
   <span class="text-sm">{$label|lang}</span>
   <span class="relative inline-flex shrink-0">

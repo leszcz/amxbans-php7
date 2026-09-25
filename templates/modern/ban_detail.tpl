@@ -1,4 +1,5 @@
 {extends file="layout.tpl"}
+{* Ban details (include/user/user_bd.php). Variables: $ban, $history, $edits, $comments, $files, $can, $upload, $old, $show_comments, $show_files. *}
 {block name=content}
 <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
   <div class="flex items-center gap-3">

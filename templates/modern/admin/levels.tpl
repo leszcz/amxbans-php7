@@ -1,4 +1,5 @@
 {extends file="admin/layout.tpl"}
+{* Permission levels (admin_wm_ul.php). Variables: $levels, $labels (permission => [group key, label key, options]). *}
 {block name=admin}
 <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
   <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_ADMINLEVELSETTINGS"|lang}</h1>

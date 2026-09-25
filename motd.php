@@ -1,9 +1,13 @@
 <?php
 declare(strict_types=1);
 
-/*
- * Ban information shown to a banned player in the in-game MOTD window.
- * URL format used by the AMXBans plugin: motd.php?sid=<char><bid>&adm=<0|1>&lang=<amxx language code>
+/**
+ * Ban information for the in-game MOTD window of a banned player.
+ *
+ * URL used by the AMXBans plugin: motd.php?sid=<char><bid>&adm=<0|1>&lang=<amxx language code>
+ * (configured per server in Admin area → Server). Template: motd.tpl (standalone page).
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
  */
 
 define('AMXB_SKIP_CSRF', true);

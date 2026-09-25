@@ -1,6 +1,15 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * Web admin login form.
+ *
+ * POST fields: user, pass, remember (+ _token). Uses Auth::attempt(); failures
+ * and lockouts are reported through flash messages (Post/Redirect/Get).
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
+
 require __DIR__ . '/include/bootstrap.php';
 
 if (Auth::check()) {

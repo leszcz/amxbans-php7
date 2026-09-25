@@ -1,3 +1,4 @@
+{* Flash messages queued with flash(). Variable: $flashes. *}
 {if $flashes}
   <div class="mb-6 space-y-2" aria-live="polite">
     {foreach $flashes as $f}

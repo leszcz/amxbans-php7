@@ -1,7 +1,14 @@
 <?php
 declare(strict_types=1);
 
-/* Modules (_modulconfig): enable / disable and rename the menu entry. */
+/**
+ * Admin page "Modules" (admin.php?site=so_mo, permission websettings_view).
+ *
+ * POST action "save" (websettings_edit): activ, menuname for module mid.
+ * The module name is not editable because it selects the PHP file that is loaded.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
 
 if (action() === 'save') {
     Auth::require('websettings_edit');

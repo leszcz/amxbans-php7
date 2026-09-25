@@ -1,4 +1,5 @@
 {extends file="admin/layout.tpl"}
+{* Ban reasons and sets (admin_sm_bg.php). Variables: $reasons, $sets (with reasons = list of reason ids). *}
 {block name=admin}
 <h1 class="mb-6 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_REASONSSETTINGS"|lang}</h1>
 <div class="grid gap-6 xl:grid-cols-2">

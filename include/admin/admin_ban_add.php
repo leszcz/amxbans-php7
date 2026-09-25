@@ -1,7 +1,14 @@
 <?php
 declare(strict_types=1);
 
-/* Add a ban manually (not connected to a game server). */
+/**
+ * Admin page "Add ban" (admin.php?site=ban_add, permission bans_add).
+ *
+ * POST action "add": name, steamid, ip, ban_type (S|SI), reason / custom_reason,
+ * length (minutes) or permanent. Creates a web ban (server_name = "website").
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
 
 if (action() === 'add') {
     $data = [

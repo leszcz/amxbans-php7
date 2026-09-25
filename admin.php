@@ -1,15 +1,24 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * Admin area router.
+ *
+ * URL: admin.php?site=<page> loads include/admin/admin_<page>.php,
+ * admin.php?modul=<name> loads include/modules/modul_<name>.php (only enabled modules).
+ * Only pages listed in $pages can be loaded; each entry names the permission
+ * needed to open the page (actions inside a page may require more).
+ *
+ * Adding a page: see docs/adding-pages.md.
+ * @see include/admin/
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
+
 require __DIR__ . '/include/bootstrap.php';
 
 Auth::require();
 
-/*
- * Admin area router: admin.php?site=<page> or admin.php?modul=<module>.
- * Only pages listed here can be loaded; each has the permission needed to open it.
- * (Actions inside a page may require additional permissions.)
- */
 $pages = [
     'so_in'          => null,
     'ban_add'        => 'bans_add',
@@ -54,7 +63,14 @@ if ($pages[$site] !== null) {
 $view->assign('admin_site', $site);
 require __DIR__ . '/include/admin/admin_' . $site . '.php';
 
-/** Sidebar of the admin area, filtered by the permissions of the current admin. */
+/**
+ * Builds the admin menu, filtered by the permissions of the current admin.
+ *
+ * Enabled modules are appended to the "Modules" group.
+ *
+ * @param array<string, array<string, mixed>> $modules Result of {@see modules_active()}.
+ * @return list<array{label: string, items: list<array{site: string, title: string, icon: string, url: string}>}>
+ */
 function admin_navigation(array $modules): array
 {
     $groups = [

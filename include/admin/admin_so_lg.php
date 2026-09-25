@@ -1,7 +1,14 @@
 <?php
 declare(strict_types=1);
 
-/* Activity log of the website (_logs). */
+/**
+ * Admin page "Logs" (admin.php?site=so_lg, permission websettings_view).
+ *
+ * GET filters: username, action, page. POST actions (websettings_edit):
+ * delete_all, delete_older (days).
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
 
 switch (action()) {
     case 'delete_all':

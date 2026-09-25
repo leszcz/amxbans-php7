@@ -1,12 +1,18 @@
 <?php
 declare(strict_types=1);
 
-require __DIR__ . '/include/bootstrap.php';
-
-/*
- * Ban search. Uses GET so results can be bookmarked; every criterion is
- * bound as a parameter (no user input is concatenated into SQL).
+/**
+ * Ban search.
+ *
+ * Uses GET (results can be bookmarked). Parameters: nick, steamid, ip (only with
+ * the ip_view permission), reason, date (Y-m-d), admin, server ("website" for web
+ * bans), times (players with at least N bans). Every criterion is bound as a
+ * parameter. Template: search.tpl.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
  */
+
+require __DIR__ . '/include/bootstrap.php';
 
 $criteria = [
     'nick'    => mb_substr(query('nick'), 0, 64),

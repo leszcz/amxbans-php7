@@ -1,3 +1,4 @@
+{* Edit-ban dialog used by ban_detail.tpl. Needs $ban, $can, $perms; opened by the surrounding x-data="modal". *}
 <template x-teleport="body">
   <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4" x-on:keydown.escape.window="hide">
     <div class="modal-backdrop" x-on:click="hide"></div>

@@ -1,4 +1,5 @@
 {extends file="layout.tpl"}
+{* Live server status (view.php). Variables: $servers, $stats, $latest. Cards load view.php?server=ID via Alpine "serverCard". *}
 {block name=content}
 <h1 class="mb-6 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_TITLEVIEW"|lang}</h1>
 

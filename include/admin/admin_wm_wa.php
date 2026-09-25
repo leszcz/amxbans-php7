@@ -1,7 +1,15 @@
 <?php
 declare(strict_types=1);
 
-/* Web admins (_webadmins): accounts that can log in to this website. */
+/**
+ * Admin page "Web admins" (admin.php?site=wm_wa).
+ *
+ * Every admin can open it to change their own password; the list of other
+ * accounts needs webadmins_view and the actions add/save/delete need webadmins_edit.
+ * POST actions: add, save, password (uid, password, password2), delete.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
 
 const MIN_PASSWORD = 8;
 $levels = array_map('intval', Database::column('SELECT `level` FROM ' . Database::table('levels') . ' ORDER BY `level`'));

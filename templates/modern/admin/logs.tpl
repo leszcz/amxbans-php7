@@ -1,4 +1,5 @@
 {extends file="admin/layout.tpl"}
+{* Website log (admin_so_lg.php). Variables: $logs, $pager, $filters, $usernames, $actions. *}
 {block name=admin}
 <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
   <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_LOGS"|lang}</h1>

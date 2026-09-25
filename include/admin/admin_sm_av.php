@@ -1,9 +1,17 @@
 <?php
 declare(strict_types=1);
 
-/*
- * AMX Mod X admins (_amxadmins). The game plugin loads these accounts.
- * Passwords are stored as MD5 because that is what the AMXBans plugin compares.
+/**
+ * Admin page "AMX admins" (admin.php?site=sm_av).
+ *
+ * Opening needs amxadmins_view, the actions need amxadmins_edit:
+ * - add     create an admin (+ assign to servers[] with static_bantime)
+ * - save    edit an admin (aid); "extend" adds days to the validity
+ * - delete  delete an admin and its server assignments
+ *
+ * Passwords of AMX Mod X admins are stored as MD5 because the game plugin compares them that way.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
  */
 
 $readAdmin = function (bool $isNew): array {

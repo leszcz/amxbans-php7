@@ -1,4 +1,5 @@
 {extends file="admin/layout.tpl"}
+{* users.ini import module (modul_usersi.php). Variables: $servers. *}
 {block name=admin}
 <h1 class="mb-6 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_MENUIMPORTADMINS"|lang}</h1>
 <form method="post" enctype="multipart/form-data" class="card max-w-2xl">

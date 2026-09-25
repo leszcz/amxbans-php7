@@ -1,9 +1,21 @@
 <?php
 declare(strict_types=1);
 
-/*
- * Ban details: ban_list.php?bid=123
- * Included from ban_list.php after bootstrap.
+/**
+ * Ban details page (ban_list.php?bid=<id>), included from ban_list.php after the bootstrap.
+ *
+ * GET download=<file id> [&thumb=1] streams an attached file.
+ * POST actions:
+ * - edit_ban        (bans_edit, "own" allowed; unban=1 needs bans_unban) - edit_reason is required
+ * - delete_ban      (bans_delete) - also deletes comments and files
+ * - add_comment     guests only when comment_all is enabled; captcha when use_capture
+ * - edit_comment / delete_comment (cid)
+ * - upload_file     guests only when demo_all is enabled; extension/size checks, random stored name
+ * - edit_file / delete_file (did)
+ *
+ * Template: ban_detail.tpl.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
  */
 
 $bid = query_int('bid');

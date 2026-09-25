@@ -1,11 +1,20 @@
 <?php
 declare(strict_types=1);
 
-/*
- * AMXBans database schema (compatible with the AMXBans 6 game plugin) and default data.
+/**
+ * Database schema and default data used by setup.php.
+ *
+ * The schema is compatible with the AMXBans 6 game plugin - do not rename
+ * tables or columns. Table names are given without the prefix.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
  */
 
-/** @return array<string,string> table name (without prefix) => column definitions */
+/**
+ * Table definitions.
+ *
+ * @return array<string, string> table name (without prefix) => column definitions for CREATE TABLE.
+ */
 function install_schema(): array
 {
     return [
@@ -70,7 +79,12 @@ function install_schema(): array
     ];
 }
 
-/** Default rows inserted into empty tables: table => list of rows. */
+/**
+ * Rows inserted into empty tables during installation.
+ *
+ * @param string $language Default language chosen in the installer.
+ * @return array<string, list<array<string, mixed>>> table => rows (column => value).
+ */
 function install_default_data(string $language): array
 {
     $smilies = [[':D', 'big_smile.png', 'Big Grin'], ['8)', 'cool.png', 'Cool'], [':/', 'hmm.png', 'Hmm'], ['lol', 'lol.png', 'lol'],

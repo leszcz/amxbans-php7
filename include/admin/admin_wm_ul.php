@@ -1,7 +1,14 @@
 <?php
 declare(strict_types=1);
 
-/* Permission levels (_levels). Every web admin has exactly one level. */
+/**
+ * Admin page "User level" (admin.php?site=wm_ul, permission permissions_edit).
+ *
+ * POST actions: add (next level number), save (level + one radio per permission),
+ * delete (only levels without admins). Admins cannot remove permissions_edit from their own level.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
 
 switch (action()) {
     case 'add':

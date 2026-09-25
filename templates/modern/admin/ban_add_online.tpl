@@ -1,4 +1,5 @@
 {extends file="admin/layout.tpl"}
+{* Add online ban (admin_ban_add_online.php). Variables: $servers, $server, $players (null when unreachable), $error, $reasons, $lengths. *}
 {block name=admin}
 <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
   <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_ADDBANONLINE"|lang}</h1>

@@ -1,0 +1,20 @@
+# Static analysis of the core classes and helpers (checks PHPDoc types too).
+# Usage: php phpstan.phar analyse      (https://github.com/phpstan/phpstan - download phpstan.phar)
+parameters:
+    level: 6
+    paths:
+        - include/Database.php
+        - include/Security.php
+        - include/Lang.php
+        - include/Auth.php
+        - include/View.php
+        - include/GameServer.php
+        - include/helpers.php
+        - include/queries.php
+        - install/schema.php
+        - include/modules/iexport_func/modul_iexport_dbbackup.php
+    bootstrapFiles:
+        - vendor/autoload.php
+        - tests/phpstan-bootstrap.php
+    scanFiles:
+        - include/geoip.inc

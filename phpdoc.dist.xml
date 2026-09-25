@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- API documentation: run `phpdoc` (phpDocumentor 3) in the project root; output goes to build/api/. -->
+<phpdocumentor configVersion="3" xmlns="https://www.phpdoc.org">
+    <title>AMXBans</title>
+    <paths>
+        <output>build/api</output>
+        <cache>build/.phpdoc-cache</cache>
+    </paths>
+    <version number="7.0.0">
+        <api>
+            <source dsn=".">
+                <path>include</path>
+                <path>install/schema.php</path>
+                <path>tests/seed.php</path>
+                <path>*.php</path>
+            </source>
+            <ignore hidden="true" symlinks="true">
+                <path>include/smarty/**/*</path>
+                <path>include/steamprofile/**/*</path>
+                <path>include/geoip.inc</path>
+                <path>include/rcon_hl_net.inc.php</path>
+                <path>include/icons.php</path>
+                <path>vendor/**/*</path>
+            </ignore>
+            <default-package-name>AMXBans</default-package-name>
+        </api>
+    </version>
+</phpdocumentor>

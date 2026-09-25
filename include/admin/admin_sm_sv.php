@@ -1,7 +1,20 @@
 <?php
 declare(strict_types=1);
 
-/* Game servers: settings, RCON console, delete. Servers are added by the AMXBans plugin itself. */
+/**
+ * Admin page "Server" (admin.php?site=sm_sv, permission servers_edit).
+ *
+ * Servers are registered by the AMXBans plugin; here they are configured.
+ * POST actions (field sid):
+ * - save    RCON password (empty = unchanged), MOTD URL/delay, menu, reason set, time zone fix
+ * - delete  delete the server and its admin assignments
+ * - rcon    predefined command (command=reload|restart|status|plugins|modules|metalist)
+ *           or custom command (custom=…); dangerous commands are blocked.
+ *
+ * The RCON password is never sent to the browser.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
 
 require_once AMXB_ROOT . '/include/GameServer.php';
 

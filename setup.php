@@ -1,10 +1,18 @@
 <?php
 declare(strict_types=1);
 
-/*
- * AMXBans installer.
- * Creates the tables (or reuses an existing AMXBans 6 database), the first web
- * admin and include/db.config.inc.php. Refuses to run once the config exists.
+/**
+ * Installer.
+ *
+ * Steps: requirements → database → administrator → install. Creates the tables
+ * (keeps existing AMXBans 6 tables), default data, the first web admin and
+ * include/db.config.inc.php (written with var_export). Refuses to run once the
+ * config file exists and can delete itself afterwards.
+ *
+ * The wizard state is kept in $_SESSION['setup']. Template: install/setup.tpl.
+ * @see install/schema.php
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
  */
 
 define('AMXB_ROOT', __DIR__);

@@ -1,7 +1,13 @@
 <?php
 declare(strict_types=1);
 
-/* Admin dashboard: statistics, system information and database maintenance. */
+/**
+ * Admin dashboard (admin.php, admin.php?site=so_in): statistics, system info, maintenance.
+ *
+ * POST actions (permission prune_db): optimize, prune, clear_cache, repair_files, repair_comments.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
 
 $maintenance = ['optimize', 'prune', 'clear_cache', 'repair_files', 'repair_comments'];
 if (in_array(action(), $maintenance, true)) {
@@ -35,7 +41,14 @@ if (in_array(action(), $maintenance, true)) {
     redirect_back();
 }
 
-/** Files without ban / ban-less DB entries / stored files without DB entry. Returns count (repaired count when $repair). */
+/**
+ * Finds (and optionally removes) orphaned uploads.
+ *
+ * Counts file rows whose ban no longer exists and stored files without a database row.
+ *
+ * @param bool $repair Delete them.
+ * @return int Number of orphaned entries (or removed entries when $repair is true).
+ */
 function repair_files(bool $repair): int
 {
     $orphans = Database::all('SELECT f.`id`, f.`demo_file` FROM ' . Database::table('files') . ' f LEFT JOIN ' . Database::table('bans') . ' b ON b.`bid` = f.`bid` WHERE b.`bid` IS NULL');

@@ -1,4 +1,5 @@
 {extends file="layout.tpl"}
+{* Login form (login.php). Variables: $username. *}
 {block name=content}
 <div class="mx-auto max-w-sm py-8">
   <div class="mb-8 text-center">

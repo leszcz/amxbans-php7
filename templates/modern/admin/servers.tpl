@@ -1,4 +1,5 @@
 {extends file="admin/layout.tpl"}
+{* Server settings + RCON console (admin_sm_sv.php). Variables: $servers (without rcon, with has_rcon), $active, $reason_sets, $rcon_presets, $output, $motd_url. *}
 {block name=admin}
 <h1 class="mb-6 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_SERVERSETTINGS"|lang}</h1>
 

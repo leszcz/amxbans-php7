@@ -1,7 +1,14 @@
 <?php
 declare(strict_types=1);
 
-/* Website settings (_webconfig). */
+/**
+ * Admin page "Settings" (admin.php?site=wm_ms, permission websettings_view).
+ *
+ * POST action "save" (websettings_edit) updates _webconfig. Design, banner,
+ * language and start page are only accepted from the lists offered in the form.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
 
 $designs = [];
 foreach (glob(AMXB_ROOT . '/templates/*/layout.tpl') ?: [] as $file) {

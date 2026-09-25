@@ -2,6 +2,15 @@
 
 ## 7.0.0 – 2026/09/25
 
+### Documentation
+* PHPDoc blocks for every PHP file, class, method and function (types incl. `list<…>` / `array{…}`), JSDoc for Alpine components, variable lists in all templates.
+* Developer documentation in `docs/` (architecture, adding pages, security rules, database, templates, frontend, translations, testing) and `CONTRIBUTING.md`.
+* `phpdoc.dist.xml` (phpDocumentor) and `phpstan.neon.dist` (PHPStan level 6, no errors).
+* `tests/seed.php` (test data) and `tests/functional_test.py` (47 HTTP/security checks).
+
+### Designs
+* New `classic` design recreating the old AMXBans GM look; designs can override only some templates (fallback to `modern`).
+
 ### Security
 * One `Database` class for every connection; all queries use prepared statements (no more `sql_safe()` string building).
 * Fixed a login bypass in the remember-me code (any cookie with 16+ characters logged the visitor in).

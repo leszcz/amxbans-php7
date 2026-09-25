@@ -1,7 +1,14 @@
 <?php
 declare(strict_types=1);
 
-/* Which AMX Mod X admins are active on which server (with optional custom flags). */
+/**
+ * Admin page "Assign AMX admins" (admin.php?site=sm_sa).
+ *
+ * GET server=<id>. Opening needs amxadmins_view; POST action "save" (amxadmins_edit)
+ * replaces the assignments of the server: active[], custom_flags[aid], static_bantime[aid].
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
 
 $servers = servers_all();
 $sid = query_int('server', (int)($servers[0]['id'] ?? 0));

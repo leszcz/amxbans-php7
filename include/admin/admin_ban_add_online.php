@@ -1,7 +1,16 @@
 <?php
 declare(strict_types=1);
 
-/* Ban or kick players that are currently online (via RCON "amx_list" of the AMXBans plugin). */
+/**
+ * Admin page "Add online ban" (admin.php?site=ban_add_online, permission bans_add).
+ *
+ * GET server=<id> selects the server; players are read with GameServer::amxList().
+ * POST actions: "ban" (insert ban + kick) and "kick"; fields userid, name, steamid,
+ * ip, ban_type, reason / custom_reason, length / permanent. The kick reason is
+ * sanitized with rcon_safe().
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
 
 require_once AMXB_ROOT . '/include/GameServer.php';
 

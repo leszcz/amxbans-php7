@@ -1,4 +1,5 @@
 {extends file="layout.tpl"}
+{* Public admin list (admin_list.php). Variables: $servers (each with admins). *}
 {block name=content}
 <h1 class="mb-6 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_ADMLIST"|lang}</h1>
 <div class="grid gap-6 lg:grid-cols-2">

@@ -1,4 +1,5 @@
 {extends file="layout.tpl"}
+{* Ban list (ban_list.php). Variables: $bans, $pager, $show (active|expired), $q, $stats, $visitor_ban, $visitor_ip, $cols. *}
 {block name=content}
 <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
   <div>

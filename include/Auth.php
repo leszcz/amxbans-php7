@@ -4,12 +4,24 @@ declare(strict_types=1);
 /**
  * Web admin authentication and permissions.
  *
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ * @see       docs/security.md#authentication
+ */
+
+/**
+ * Login, logout, "remember me" and permission checks for web admins (_webadmins).
+ *
  * The session only stores the admin id; the account and its permission
  * level are re-read on every request, so deleting an admin, changing a
  * password or editing a permission level takes effect immediately.
  */
 final class Auth
 {
+    /**
+     * Permission columns of the _levels table. Each one is "yes" or "no";
+     * those listed in {@see Auth::OWN_PERMISSIONS} may also be "own".
+     */
     public const PERMISSIONS = [
         'bans_add', 'bans_edit', 'bans_delete', 'bans_unban', 'bans_import', 'bans_export',
         'amxadmins_view', 'amxadmins_edit', 'webadmins_view', 'webadmins_edit',
@@ -19,13 +31,36 @@ final class Auth
     /** Permissions that may also have the value "own" (only bans created by the admin). */
     public const OWN_PERMISSIONS = ['bans_edit', 'bans_delete', 'bans_unban'];
 
+    /** Failed logins after which the account is blocked. */
     public const MAX_TRIES = 5;
+
+    /** How long an account stays blocked, in minutes. */
     public const BLOCK_MINUTES = 15;
+
+    /** Lifetime of the "remember me" cookie, in days. */
     private const REMEMBER_DAYS = 30;
 
+    /**
+     * @var array<string, mixed>|null Logged-in admin: columns of _webadmins
+     *      plus "perms" (permission => yes|no|own); null for guests.
+     */
     private static ?array $user = null;
+
+    /** @var string Name of the "remember me" cookie (<webconfig.cookie>_remember). */
     private static string $cookieName = 'amxbans';
 
+    /**
+     * Restores the logged-in admin for the current request.
+     *
+     * Reads the admin id from the session (or logs in with a valid "remember me"
+     * cookie), reloads the account and its level from the database and verifies
+     * that the password was not changed since login. Updates last_action at most
+     * once per minute.
+     *
+     * @param stdClass $config Web settings; uses $config->cookie for the cookie name.
+     * @return void
+     * @throws PDOException On database errors.
+     */
     public static function init(stdClass $config): void
     {
         $cookie = preg_replace('/[^A-Za-z0-9_]/', '', (string)($config->cookie ?? '')) ?: 'amxbans';
@@ -48,32 +83,58 @@ final class Auth
         }
     }
 
+    /**
+     * @return bool True when an admin is logged in.
+     */
     public static function check(): bool
     {
         return self::$user !== null;
     }
 
+    /**
+     * @return array<string, mixed>|null The logged-in admin (including "perms") or null.
+     */
     public static function user(): ?array
     {
         return self::$user;
     }
 
+    /**
+     * @return int Id of the logged-in admin, 0 for guests.
+     */
     public static function id(): int
     {
         return (int)(self::$user['id'] ?? 0);
     }
 
+    /**
+     * @return string User name of the logged-in admin, "" for guests.
+     */
     public static function name(): string
     {
         return (string)(self::$user['username'] ?? '');
     }
 
+    /**
+     * Checks a permission of the logged-in admin.
+     *
+     * "own" counts as false here - use {@see Auth::canOnBan()} for ban actions.
+     *
+     * @param string $permission One of {@see Auth::PERMISSIONS}.
+     * @return bool True when the value is "yes".
+     */
     public static function can(string $permission): bool
     {
         return self::$user !== null && (self::$user['perms'][$permission] ?? 'no') === 'yes';
     }
 
-    /** "yes", or "own" and the ban was created by this admin. */
+    /**
+     * Checks a ban permission that may be limited to the admin's own bans.
+     *
+     * @param string               $permission bans_edit, bans_delete or bans_unban.
+     * @param array<string, mixed> $ban        Ban row (admin_nick, admin_id, nickname are compared).
+     * @return bool True for "yes", or for "own" when the ban was created by this admin.
+     */
     public static function canOnBan(string $permission, array $ban): bool
     {
         if (self::$user === null) {
@@ -94,14 +155,23 @@ final class Auth
         ], true);
     }
 
-    /** All permission values of the current admin (for templates). */
+    /**
+     * All permission values of the current admin (templates use `$perms.ip_view == 'yes'`).
+     *
+     * @return array<string, string> permission => yes|no|own ("no" for guests).
+     */
     public static function permissions(): array
     {
         $perms = array_fill_keys(self::PERMISSIONS, 'no');
         return self::$user ? array_merge($perms, self::$user['perms']) : $perms;
     }
 
-    /** Redirects guests to the login page and shows 403 when a permission is missing. */
+    /**
+     * Guards a page or action.
+     *
+     * @param string|null $permission Required permission, or null when being logged in is enough.
+     * @return void Redirects guests to login.php; responds 403 when the permission is missing.
+     */
     public static function require(?string $permission = null): void
     {
         if (!self::check()) {
@@ -113,8 +183,18 @@ final class Auth
     }
 
     /**
-     * @return array{status:string, block_left?:int, tries_left?:int}
-     *         status: ok | invalid | blocked
+     * Tries to log in with a user name and password.
+     *
+     * Counts failed attempts in _webadmins.try and blocks the account for
+     * {@see Auth::BLOCK_MINUTES} after {@see Auth::MAX_TRIES} failures. Unknown
+     * user names take the same time as wrong passwords.
+     *
+     * @param string $username User name.
+     * @param string $password Plain password.
+     * @param bool   $remember Issue a "remember me" cookie.
+     * @return array{status: string, block_left?: int, tries_left?: int}
+     *         status "ok", "invalid" or "blocked"; block_left in seconds.
+     * @throws PDOException On database errors.
      */
     public static function attempt(string $username, string $password, bool $remember): array
     {
@@ -159,6 +239,12 @@ final class Auth
         return ['status' => 'ok'];
     }
 
+    /**
+     * Logs the current admin out: clears the remember-me token and cookie,
+     * the session data (except the language) and regenerates the session id.
+     *
+     * @return void
+     */
     public static function logout(): void
     {
         if (self::$user) {
@@ -173,7 +259,11 @@ final class Auth
         }
     }
 
-    /** Keeps the current session valid after the admin changed their own password. */
+    /**
+     * Keeps the current session valid after the admin changed their own password.
+     *
+     * @return void
+     */
     public static function refreshSession(): void
     {
         $user = self::loadUser(self::id());
@@ -183,6 +273,12 @@ final class Auth
         }
     }
 
+    /**
+     * Hashes a web admin password (bcrypt/argon, whatever PASSWORD_DEFAULT is).
+     *
+     * @param string $password Plain password.
+     * @return string Hash for _webadmins.password.
+     */
     public static function hashPassword(string $password): string
     {
         return password_hash($password, PASSWORD_DEFAULT);
@@ -190,6 +286,14 @@ final class Auth
 
     // ------------------------------------------------------------------------
 
+    /**
+     * Stores the admin in the session after a successful login.
+     *
+     * Regenerates the session id (prevents session fixation) and the CSRF token.
+     *
+     * @param int $uid Admin id.
+     * @return void
+     */
     private static function loginAs(int $uid): void
     {
         session_regenerate_id(true);
@@ -205,8 +309,15 @@ final class Auth
     }
 
     /**
+     * Verifies a password against the stored hash.
+     *
      * Supports bcrypt/argon hashes and the MD5 hashes of AMXBans 6 installations;
      * old hashes are transparently upgraded on successful login.
+     *
+     * @param string $password Plain password.
+     * @param string $hash     Stored hash.
+     * @param int    $uid      Admin id (for the rehash).
+     * @return bool True when the password is correct.
      */
     private static function verifyPassword(string $password, string $hash, int $uid): bool
     {
@@ -221,6 +332,12 @@ final class Auth
         return $ok;
     }
 
+    /**
+     * Loads an admin together with the permission columns of their level.
+     *
+     * @param int $uid Admin id.
+     * @return array<string, mixed>|null Row with an additional "perms" array, or null.
+     */
     private static function loadUser(int $uid): ?array
     {
         $row = Database::one(
@@ -243,17 +360,35 @@ final class Auth
         return $row;
     }
 
+    /**
+     * Short hash of the password hash, stored in the session to invalidate
+     * other sessions when the password changes.
+     *
+     * @param array<string, mixed> $user Admin row.
+     * @return string 32 hexadecimal characters.
+     */
     private static function fingerprint(array $user): string
     {
         return substr(hash('sha256', (string)$user['password'] . '|' . $user['id']), 0, 32);
     }
 
+    /**
+     * Removes the login data from the session.
+     *
+     * @return void
+     */
     private static function clearSession(): void
     {
         unset($_SESSION['_uid'], $_SESSION['_pwfp']);
         self::$user = null;
     }
 
+    /**
+     * Creates a new random remember-me token; only its SHA-256 is stored (in _webadmins.logcode).
+     *
+     * @param int $uid Admin id.
+     * @return void
+     */
     private static function issueRememberCookie(int $uid): void
     {
         $token = bin2hex(random_bytes(32));
@@ -261,6 +396,12 @@ final class Auth
         self::setCookie($uid . ':' . $token, time() + self::REMEMBER_DAYS * 86400);
     }
 
+    /**
+     * Logs in with a remember-me cookie ("<uid>:<token>") and rotates the token.
+     *
+     * @param string $value Cookie value.
+     * @return void Invalid cookies are deleted.
+     */
     private static function loginFromCookie(string $value): void
     {
         if (!preg_match('/^(\d+):([a-f0-9]{64})$/', $value, $m)) {
@@ -279,6 +420,11 @@ final class Auth
         self::issueRememberCookie((int)$row['id']); // rotate the token on every use
     }
 
+    /**
+     * Deletes the remember-me cookie in the browser.
+     *
+     * @return void
+     */
     private static function forgetCookie(): void
     {
         if (isset($_COOKIE[self::$cookieName])) {
@@ -286,6 +432,13 @@ final class Auth
         }
     }
 
+    /**
+     * Sets the remember-me cookie (HttpOnly, SameSite=Lax, Secure on HTTPS).
+     *
+     * @param string $value   Cookie value.
+     * @param int    $expires Unix timestamp.
+     * @return void
+     */
     private static function setCookie(string $value, int $expires): void
     {
         setcookie(self::$cookieName, $value, [

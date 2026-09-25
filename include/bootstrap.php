@@ -4,14 +4,25 @@ declare(strict_types=1);
 /**
  * Common start-up for every page of AMXBans.
  *
- *   require __DIR__ . '/include/bootstrap.php';
+ * ```php
+ * require __DIR__ . '/include/bootstrap.php';
+ * ```
  *
- * Loads the libraries, opens the (lazy) database connection, starts a
- * hardened session, sends security headers, verifies the CSRF token of
- * every POST request, restores the logged-in user and loads the web
- * settings. After this file the following globals are available:
- *   $config  - stdClass with DB settings and web settings
- *   $view    - View (Smarty 5) instance
+ * Order of work (see docs/architecture.md#request-lifecycle):
+ *  1. constants AMXB_ROOT, AMXB_VERSION; Composer autoloader and project classes
+ *  2. include/db.config.inc.php (redirects to setup.php when missing)
+ *  3. security headers, hardened session
+ *  4. web settings from _webconfig ({@see settings_load()})
+ *  5. language ({@see Lang::init()}), logged-in admin ({@see Auth::init()})
+ *  6. CSRF check of POST requests (skipped when AMXB_SKIP_CSRF is defined)
+ *  7. template engine ({@see View})
+ *
+ * Globals available afterwards:
+ *  - `$config` (stdClass) database settings + web settings
+ *  - `$view`   (View)     Smarty 5 instance
+ *
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
  */
 
 define('AMXB_ROOT', dirname(__DIR__));

@@ -1,4 +1,5 @@
 {extends file="layout.tpl"}
+{* Admin area layout with sidebar. Block: admin. Variables: $admin_nav (admin_navigation()), $admin_site. *}
 {block name=content}
 <div class="grid gap-8 lg:grid-cols-[15rem_1fr]" x-data="dropdown">
   <aside>

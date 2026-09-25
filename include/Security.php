@@ -2,12 +2,37 @@
 declare(strict_types=1);
 
 /**
+ * Request-level security: session, HTTP headers and CSRF.
+ *
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ * @see       docs/security.md
+ */
+
+/**
  * Session hardening, security headers and CSRF protection.
+ *
+ * Called by include/bootstrap.php for every page (and directly by setup.php
+ * and captcha.php, which run without the full bootstrap):
+ *
+ * ```php
+ * Security::sendHeaders();
+ * Security::startSession();
+ * Security::verifyCsrfOnPost();   // every POST must carry the "_token" field
+ * ```
+ *
+ * In templates the token field is printed with `{csrf}`.
  */
 final class Security
 {
+    /** Name of the session cookie. */
     private const SESSION_NAME = 'AMXBSESSID';
 
+    /**
+     * Tells whether the current request came over HTTPS (also behind a reverse proxy).
+     *
+     * @return bool True for HTTPS, port 443 or X-Forwarded-Proto: https.
+     */
     public static function isHttps(): bool
     {
         return (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off')
@@ -15,6 +40,15 @@ final class Security
             || strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
     }
 
+    /**
+     * Starts a hardened session.
+     *
+     * Strict mode and cookie-only ids, HttpOnly + SameSite=Lax cookie (Secure on
+     * HTTPS) limited to the application directory. The session id is rotated
+     * every 30 minutes; Auth rotates it additionally on login and logout.
+     *
+     * @return void
+     */
     public static function startSession(): void
     {
         if (session_status() === PHP_SESSION_ACTIVE) {
@@ -49,13 +83,26 @@ final class Security
         }
     }
 
-    /** Directory of the application as seen from the browser, e.g. "/bans/". */
+    /**
+     * Directory of the application as seen from the browser - used as cookie path.
+     *
+     * @return string Path with trailing slash, e.g. "/bans/".
+     */
     public static function cookiePath(): string
     {
         $dir = str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/'));
         return rtrim($dir, '/') . '/';
     }
 
+    /**
+     * Sends security headers.
+     *
+     * The Content-Security-Policy allows scripts and styles only from this
+     * site: no inline `<script>`, no `eval` (that is why the Alpine.js CSP
+     * build is used). Steam CDNs are allowed for avatars. HSTS is sent on HTTPS.
+     *
+     * @return void
+     */
     public static function sendHeaders(): void
     {
         if (headers_sent()) {
@@ -81,6 +128,13 @@ final class Security
     // CSRF
     // ------------------------------------------------------------------------
 
+    /**
+     * Returns the CSRF token of the current session, creating it when needed.
+     *
+     * The token is replaced after login (see Auth::loginAs()).
+     *
+     * @return string 64 hexadecimal characters.
+     */
     public static function csrfToken(): string
     {
         if (empty($_SESSION['_csrf']) || !is_string($_SESSION['_csrf'])) {
@@ -89,14 +143,25 @@ final class Security
         return $_SESSION['_csrf'];
     }
 
+    /**
+     * Compares a submitted token with the session token in constant time.
+     *
+     * @param string|null $token Value of the "_token" field or X-CSRF-Token header.
+     * @return bool True when the token matches.
+     */
     public static function csrfValid(?string $token): bool
     {
         return is_string($token) && $token !== '' && hash_equals(self::csrfToken(), $token);
     }
 
     /**
+     * Rejects POST requests without a valid CSRF token (HTTP 419).
+     *
      * Every state-changing request in AMXBans is a POST; each one must carry the
      * token of the current session (hidden field "_token" or X-CSRF-Token header).
+     * GET requests must never change data.
+     *
+     * @return void Ends the request with status 419 when the token is invalid.
      */
     public static function verifyCsrfOnPost(): void
     {

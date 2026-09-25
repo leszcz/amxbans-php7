@@ -1,9 +1,22 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * Public ban list and ban details.
+ *
+ * GET parameters:
+ * - bid   show the details page of one ban (handled by include/user/user_bd.php)
+ * - show  "expired" lists expired bans instead of active ones
+ * - q     quick search in nickname, SteamID and reason
+ * - page  page number
+ *
+ * Template: ban_list.tpl (details: ban_detail.tpl).
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
+
 require __DIR__ . '/include/bootstrap.php';
 
-// Ban details page: ban_list.php?bid=123
 if (query_int('bid') > 0) {
     require __DIR__ . '/include/user/user_bd.php';
     exit;

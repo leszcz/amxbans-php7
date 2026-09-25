@@ -1,7 +1,15 @@
 <?php
 declare(strict_types=1);
 
-/* Public navigation menu (_usermenu). "url" is shown to guests, "url2" to logged in admins. */
+/**
+ * Admin page "User menu" (admin.php?site=wm_um, permission websettings_view).
+ *
+ * POST actions (websettings_edit): add, save, delete, up, down (field mid).
+ * url/lang_key are shown to guests, url2/lang_key2 to logged-in admins;
+ * only http(s) and relative URLs are accepted.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
 
 $readItem = function (): array {
     $data = [

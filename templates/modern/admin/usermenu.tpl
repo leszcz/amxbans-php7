@@ -1,4 +1,5 @@
 {extends file="admin/layout.tpl"}
+{* Public menu editor (admin_wm_um.php). Variables: $items. *}
 {block name=admin}
 <h1 class="mb-6 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_USERMENUSETTINGS"|lang}</h1>
 <section class="card">

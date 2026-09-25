@@ -1,4 +1,5 @@
 {extends file="admin/layout.tpl"}
+{* Admin dashboard (admin_so_in.php). Variables: $stats, $recent, $system, $auto_prune. *}
 {block name=admin}
 <div class="mb-6">
   <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_WELCOME_BACK"|lang|sprintf:$auth.username}</h1>

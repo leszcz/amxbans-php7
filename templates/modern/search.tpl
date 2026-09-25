@@ -1,4 +1,5 @@
 {extends file="layout.tpl"}
+{* Ban search (search.php). Variables: $criteria, $searched, $results (active/expired), $admins, $servers. *}
 {block name=content}
 <h1 class="mb-6 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_SEARCH"|lang}</h1>
 

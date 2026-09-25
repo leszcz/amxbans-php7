@@ -1,5 +1,10 @@
 <?php
 declare(strict_types=1);
 
-// Merged into admin_so_vs.php (admin.php maps "so_up" to "so_vs").
+/**
+ * Obsolete alias of admin_so_vs.php.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
+
 require __DIR__ . '/admin_so_vs.php';

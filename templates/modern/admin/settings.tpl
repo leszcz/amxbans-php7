@@ -1,4 +1,5 @@
 {extends file="admin/layout.tpl"}
+{* Web settings (admin_wm_ms.php). Variables: $vars (_webconfig row), $designs, $banners, $start_pages, $upload_limit. *}
 {block name=admin}
 <h1 class="mb-6 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_SITESETTINGS"|lang}</h1>
 <form method="post">

@@ -1,4 +1,5 @@
 {extends file="admin/layout.tpl"}
+{* Add ban (admin_ban_add.php). Variables: $reasons, $lengths, $old (form values after a validation error). *}
 {block name=admin}
 <h1 class="mb-6 text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_ADDBAN"|lang}</h1>
 <form method="post" class="card max-w-3xl">

@@ -1,12 +1,26 @@
 <?php
 declare(strict_types=1);
 
-/*
- * Queries used by more than one page. All of them use prepared statements
- * through the Database class.
+/**
+ * Queries used by more than one page.
+ *
+ * All of them use prepared statements through the {@see Database} class.
+ * Page-specific queries live in the page controllers.
+ *
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ * @see       docs/database.md
  */
 
-/** Loads the _webconfig row into $config. */
+/**
+ * Loads the web settings (_webconfig) into $config, with types and limits applied.
+ *
+ * @param stdClass $config Configuration object; receives cookie, bans_per_page, design, banner,
+ *                         banner_url, default_lang, start_page, show_*_count, demo_all, comment_all,
+ *                         use_capture, max_file_size, file_type, auto_prune, max_offences*, use_demo, use_comment.
+ * @return void
+ * @throws PDOException On database errors.
+ */
 function settings_load(stdClass $config): void
 {
     $row = Database::one('SELECT * FROM ' . Database::table('webconfig') . ' ORDER BY `id` LIMIT 1') ?? [];
@@ -33,7 +47,12 @@ function settings_load(stdClass $config): void
     $config->use_comment         = (int)($row['use_comment'] ?? 1);
 }
 
-/** Allowed upload extensions from the settings (lowercase, no executable types). */
+/**
+ * Upload extensions allowed by the settings, minus script/HTML types that are always blocked.
+ *
+ * @param stdClass $config Configuration with file_type ("dem,zip,jpg").
+ * @return list<string> Lowercase extensions.
+ */
 function allowed_file_types(stdClass $config): array
 {
     $blocked = ['php', 'phtml', 'php3', 'php4', 'php5', 'php7', 'php8', 'phar', 'pht', 'phps', 'cgi', 'pl', 'py',
@@ -42,7 +61,15 @@ function allowed_file_types(stdClass $config): array
     return array_values(array_filter($types, fn($t) => preg_match('/^[a-z0-9]{1,8}$/', $t) && !in_array($t, $blocked, true)));
 }
 
-/** Navigation items of the public menu (_usermenu). */
+/**
+ * Items of the public navigation (_usermenu).
+ *
+ * Guests see url/lang_key, logged-in admins url2/lang_key2. Login/logout entries
+ * are skipped because the layout renders dedicated buttons.
+ *
+ * @param bool $loggedIn Whether an admin is logged in.
+ * @return list<array{url: string, label: string, file: string}> file = script name for the "active" state.
+ */
 function menu_items(bool $loggedIn): array
 {
     static $rows = null;
@@ -60,6 +87,9 @@ function menu_items(bool $loggedIn): array
     return $items;
 }
 
+/**
+ * @return list<array{code: string, url: string, name: string}> Rows of _smilies (cached per request).
+ */
 function smilies(): array
 {
     static $rows = null;
@@ -71,7 +101,11 @@ function smilies(): array
     return $rows;
 }
 
-/** Active modules keyed by name (from _modulconfig). */
+/**
+ * Enabled modules whose file include/modules/modul_<name>.php exists.
+ *
+ * @return array<string, array<string, mixed>> name => _modulconfig row.
+ */
 function modules_active(): array
 {
     static $rows = null;
@@ -86,16 +120,26 @@ function modules_active(): array
     return $rows;
 }
 
+/**
+ * @return list<array<string, mixed>> All rows of _serverinfo ordered by hostname (including the RCON password - never pass it to templates).
+ */
 function servers_all(): array
 {
     return Database::all('SELECT * FROM ' . Database::table('serverinfo') . ' ORDER BY `hostname`');
 }
 
+/**
+ * @param int $id Server id.
+ * @return array<string, mixed>|null _serverinfo row.
+ */
 function server_find(int $id): ?array
 {
     return Database::one('SELECT * FROM ' . Database::table('serverinfo') . ' WHERE `id` = :id', ['id' => $id]);
 }
 
+/**
+ * @return list<array<string, mixed>> All ban reasons (_reasons) ordered by name.
+ */
 function reasons_all(): array
 {
     return Database::all('SELECT * FROM ' . Database::table('reasons') . ' ORDER BY `reason`');
@@ -105,7 +149,14 @@ function reasons_all(): array
 // Bans
 // ----------------------------------------------------------------------------
 
-/** SELECT used by every ban listing; joins the server (timezone, mod) and the AMXX admin. */
+/**
+ * SELECT used by every ban listing.
+ *
+ * Joins the server (timezone_fixx, gametype) and the AMX Mod X admin (nickname)
+ * without duplicating rows. Append WHERE / ORDER BY / LIMIT.
+ *
+ * @return string SQL fragment.
+ */
 function ban_select_sql(): string
 {
     return 'SELECT ba.*, se.`gametype`, se.`timezone_fixx`, aa.`nickname`
@@ -116,13 +167,25 @@ function ban_select_sql(): string
                      WHERE a2.`steamid` IN (ba.`admin_id`, ba.`admin_ip`, ba.`admin_nick`))';
 }
 
+/**
+ * @param int $bid Ban id.
+ * @return array<string, mixed>|null Ban row processed by {@see ban_present()}.
+ */
 function ban_find(int $bid): ?array
 {
     $row = Database::one(ban_select_sql() . ' WHERE ba.`bid` = :bid', ['bid' => $bid]);
     return $row ? ban_present($row) : null;
 }
 
-/** Adds computed fields (end time, state, flag, Steam profile, admin display name) to a ban row. */
+/**
+ * Adds computed fields to a ban row for templates.
+ *
+ * Added keys: created (with time zone fix), ban_end, permanent, unbanned, active,
+ * website, mod, steam_url, has_steamid, admin_name, cc (country code), cn (country name).
+ *
+ * @param array<string, mixed> $row Row from {@see ban_select_sql()}.
+ * @return array<string, mixed>
+ */
 function ban_present(array $row): array
 {
     $tz = (int)($row['timezone_fixx'] ?? 0) * 3600;
@@ -146,7 +209,12 @@ function ban_present(array $row): array
     return $row;
 }
 
-/** Number of expired bans for the same SteamID / IP (previous offences). */
+/**
+ * Counts expired bans of the same player (by SteamID or IP).
+ *
+ * @param array<string, mixed> $ban Ban row (bid, player_id, player_ip).
+ * @return int
+ */
 function ban_previous_count(array $ban): int
 {
     $pid = (string)($ban['player_id'] ?? '');
@@ -162,7 +230,13 @@ function ban_previous_count(array $ban): int
     );
 }
 
-/** Deletes a ban together with its comments, files and edit history. */
+/**
+ * Deletes a ban with its comments, files (also on disk) and edit history.
+ *
+ * @param int $bid Ban id.
+ * @return void
+ * @throws PDOException On database errors (the DB part runs in a transaction).
+ */
 function ban_delete(int $bid): void
 {
     foreach (Database::column('SELECT `demo_file` FROM ' . Database::table('files') . ' WHERE `bid` = :bid', ['bid' => $bid]) as $file) {
@@ -176,7 +250,13 @@ function ban_delete(int $bid): void
     });
 }
 
-/** Marks bans whose time has passed as expired. Returns the number of changed bans. */
+/**
+ * Marks bans whose time has passed as expired and records "Bantime expired" in _bans_edit.
+ *
+ * Called on every ban list request when auto_prune is enabled, and from the dashboard.
+ *
+ * @return int Number of bans marked as expired.
+ */
 function bans_prune(): int
 {
     $rows = Database::all(
@@ -199,7 +279,11 @@ function bans_prune(): int
     return $count;
 }
 
-/** Ban length presets (minutes => label) for select boxes. */
+/**
+ * Ban length choices for select boxes.
+ *
+ * @return array<int, string> minutes => translated label.
+ */
 function ban_length_presets(): array
 {
     $out = [];

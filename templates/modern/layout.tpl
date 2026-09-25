@@ -1,3 +1,5 @@
+{* Base layout of all public pages and the admin area (design "modern").
+   Blocks: content. Variables from View::assignCommon(): $app, $auth, $perms, $nav, $flashes, $csrf_token, $asset_ver, $page_title. *}
 <!DOCTYPE html>
 <html lang="{$app.html_lang}" class="h-full">
 <head>

@@ -2,8 +2,20 @@
 declare(strict_types=1);
 
 /**
+ * SQL backup helper of the Import/Export module.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
+
+/**
  * Creates an SQL dump of the AMXBans tables (only tables with the configured prefix).
- * Returns the SQL as a string.
+ *
+ * Uses SHOW CREATE TABLE for the structure and PDO::quote() for values.
+ *
+ * @param bool $structureOnly Only CREATE TABLE statements.
+ * @param bool $dropTable     Add DROP TABLE IF EXISTS before each table.
+ * @param bool $bansOnly      Only the _bans table.
+ * @return string SQL script.
  */
 function db_backup(bool $structureOnly, bool $dropTable, bool $bansOnly): string
 {

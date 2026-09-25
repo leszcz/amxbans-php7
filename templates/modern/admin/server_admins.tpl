@@ -1,4 +1,5 @@
 {extends file="admin/layout.tpl"}
+{* Admin assignment per server (admin_sm_sa.php). Variables: $servers, $server, $admins. *}
 {block name=admin}
 <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
   <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_SERVERADMINSETTINGS"|lang}</h1>

@@ -34,3 +34,5 @@ vendor/smarty/smarty/.git*
 
 *.zip
 .DS_Store
+build/api/
+build/.phpdoc-cache/

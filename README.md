@@ -35,7 +35,7 @@ The included `.htaccess` files block `include/`, `templates/`, `templates_c/`, `
 For **nginx** add to the `server` block:
 
 ```nginx
-location ~ ^/(include|templates|templates_c|vendor|language|install|build|temp|node_modules)(/|$) { deny all; return 404; }
+location ~ ^/(include|templates|templates_c|vendor|language|install|build|temp|node_modules|tests|docs)(/|$) { deny all; return 404; }
 location ~ /\.(?!well-known) { deny all; }
 location ~* \.(tpl|inc|sql|ini|log|md|lock)$ { deny all; }
 location ~* ^/images/.*\.php$ { deny all; }
@@ -53,6 +53,9 @@ location ~* ^/images/.*\.php$ { deny all; }
 AMX Mod X admin passwords (`_amxadmins.password`) are still stored as MD5 because the game plugin compares them that way.
 
 ## Development
+
+Developer documentation (in Polish) is in [`docs/`](docs/README.md): architecture, adding pages, security rules,
+database schema, templates, frontend, translations and testing.
 
 Directory layout:
 

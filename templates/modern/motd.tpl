@@ -1,3 +1,5 @@
+{* In-game MOTD window of a banned player (motd.php). Standalone page, always dark.
+   Variables: $ban (ban_present() row), $show_admin. *}
 <!DOCTYPE html>
 <html lang="{$app.html_lang}" class="dark">
 <head>

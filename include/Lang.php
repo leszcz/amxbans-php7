@@ -4,6 +4,14 @@ declare(strict_types=1);
 /**
  * Translations.
  *
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ * @see       docs/translations.md
+ */
+
+/**
+ * Translation loader and lookup.
+ *
  * Language files live in language/lang.<language>[.<part>].php and contain
  * lines like  define("_KEY","Text");  They are parsed (never executed).
  * Values are converted to plain UTF-8 text - HTML entities are decoded and
@@ -12,12 +20,25 @@ declare(strict_types=1);
  */
 final class Lang
 {
+    /** Language used when a key is missing in the selected language. */
     private const FALLBACK = 'english';
 
+    /** @var string Language used for the current request. */
     private static string $current = self::FALLBACK;
-    /** @var array<string, array<string,string>> */
+
+    /** @var array<string, array<string, string>> language => (key => text) */
     private static array $cache = [];
 
+    /**
+     * Selects the language for the current request.
+     *
+     * Order: `?setlang=` parameter (stored in the session, then redirects to the
+     * same URL without it), language stored in the session, $default, English.
+     * Also sets LC_TIME from the `_LOCALE` key.
+     *
+     * @param string $default Default language from the web settings.
+     * @return void May end the request with a redirect when ?setlang= is present.
+     */
     public static function init(string $default): void
     {
         $available = self::available();
@@ -44,11 +65,24 @@ final class Lang
         }
     }
 
+    /**
+     * Returns the language of the current request.
+     *
+     * @return string Language name, e.g. "polish".
+     */
     public static function current(): string
     {
         return self::$current;
     }
 
+    /**
+     * Switches the language for the rest of the request (not stored in the session).
+     *
+     * Used by motd.php, where the language comes from the game plugin.
+     *
+     * @param string $language Language name; ignored when not available.
+     * @return void
+     */
     public static function set(string $language): void
     {
         if (in_array($language, self::available(), true)) {
@@ -56,7 +90,11 @@ final class Lang
         }
     }
 
-    /** Names of all languages that have a main file language/lang.<name>.php */
+    /**
+     * Lists all installed languages.
+     *
+     * @return list<string> Names of languages with a main file language/lang.<name>.php, sorted.
+     */
     public static function available(): array
     {
         static $list = null;
@@ -73,6 +111,15 @@ final class Lang
         return $list;
     }
 
+    /**
+     * Translates a language key.
+     *
+     * Strings that do not start with "_" are returned unchanged, so plain text
+     * (e.g. a custom menu label) can be passed through `|lang` safely.
+     *
+     * @param string $key Language key such as "_BANLIST".
+     * @return string Plain UTF-8 text (not HTML-escaped), the English text, or $key itself.
+     */
     public static function get(string $key): string
     {
         if ($key === '' || $key[0] !== '_') {
@@ -86,7 +133,15 @@ final class Lang
         return $fallback[$key] ?? $key;
     }
 
-    /** @return array<string,string> */
+    /**
+     * Parses (never includes) all files of a language and caches the result.
+     *
+     * Files are read in alphabetical order, so lang.polish.ui.php can add keys
+     * to lang.polish.php.
+     *
+     * @param string $language Language name.
+     * @return array<string, string> key => text
+     */
     private static function load(string $language): array
     {
         if (isset(self::$cache[$language])) {
@@ -107,6 +162,15 @@ final class Lang
         return self::$cache[$language] = $keys;
     }
 
+    /**
+     * Converts a legacy language value to plain UTF-8 text.
+     *
+     * Decodes HTML entities (also numeric ones without ";"), turns <br> into
+     * newlines and strips remaining tags.
+     *
+     * @param string $value Raw value from the define() line.
+     * @return string Plain text.
+     */
     private static function clean(string $value): string
     {
         $value = str_replace(['\\"', "\\'"], ['"', "'"], $value);
@@ -123,7 +187,12 @@ final class Lang
     }
 }
 
-/** Shortcut: translated text for a language key. */
+/**
+ * Shortcut for {@see Lang::get()}.
+ *
+ * @param string $key Language key.
+ * @return string Translated plain text.
+ */
 function __(string $key): string
 {
     return Lang::get($key);

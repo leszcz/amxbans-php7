@@ -1,9 +1,16 @@
 <?php
 declare(strict_types=1);
 
+/**
+ * Public list of AMX Mod X admins, grouped by server.
+ *
+ * Shows admins with ashow = 1 that are not expired. Template: admin_list.tpl.
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
+
 require __DIR__ . '/include/bootstrap.php';
 
-// Visible AMX Mod X admins, grouped by the servers they are assigned to.
 $admins = [];
 foreach (Database::all(
     'SELECT * FROM ' . Database::table('amxadmins') . '

@@ -1,7 +1,16 @@
 <?php
 declare(strict_types=1);
 
-/* Ban reasons and reason sets (a set is assigned to a server in the server settings). */
+/**
+ * Admin page "Ban reasons" (admin.php?site=sm_bg, permission servers_edit).
+ *
+ * Reasons (_reasons) and reason sets (_reasons_set + _reasons_to_set). A set is
+ * assigned to a server in the server settings; the plugin shows it in its ban menu.
+ * POST actions: add_reason, save_reason, delete_reason (rid), add_set, save_set,
+ * delete_set (rsid, setname, reasons[]).
+ * @package   AMXBans
+ * @license   CC-BY-NC-SA-2.0
+ */
 
 $reasonInput = function (): array {
     $reason = mb_substr(input('reason'), 0, 100);

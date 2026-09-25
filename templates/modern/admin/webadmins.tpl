@@ -1,4 +1,5 @@
 {extends file="admin/layout.tpl"}
+{* Web admins (admin_wm_wa.php). Variables: $users, $levels, $min_pw. *}
 {block name=admin}
 <div class="mb-6 flex flex-wrap items-center justify-between gap-4">
   <h1 class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{"_WEBADMINSSETTINGS"|lang}</h1>
